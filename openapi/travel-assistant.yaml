@@ -1,1 +1,381 @@
-“接口契约”文件（OpenAPI 规范）。用来规定前端和后端核心接口的纯文本文件
+openapi: 3.0.3
+info:
+  title: 天气查询与智能出行规划助手 API 契约
+  version: 1.1.0
+  description: |
+    本契约是三人小组进行前后端联调、DTO 设计和测试的共同依据。
+    第一版采用 Spring Boot + Thymeleaf 服务端渲染，不要求独立 REST/JSON 前端。
+    成功请求返回 HTML 页面；页面表单错误也通过重新渲染页面展示，不直接向普通浏览器用户输出 JSON。
+    ErrorResponse 用于统一记录错误语义，并可供日志、测试或未来 JSON 接口复用。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境；部署时按实际地址修改
+
+tags:
+  - name: Weather
+    description: 城市天气查询与页面展示
+  - name: TravelPlan
+    description: 单日出行计划生成
+
+paths:
+  /weather:
+    get:
+      tags:
+        - Weather
+      operationId: queryWeatherPage
+      summary: 查询城市天气并展示天气查询页面
+      description: |
+        接收城市名称和出行日期，查询地理编码结果及对应日期的天气预报。
+        本接口面向 Thymeleaf 页面，不是返回 JSON 的 REST 接口。
+        若城市有多个匹配结果，页面应展示候选地点供用户确认；若第一版尚未实现候选选择，
+        则不得静默选择不确定的地点，应明确提示用户补充地区信息。
+      parameters:
+        - name: city
+          in: query
+          required: true
+          description: 目的地城市名称。后端应去除首尾空白，空白字符串视为无效输入。
+          schema:
+            type: string
+            minLength: 1
+          example: 广州
+        - name: date
+          in: query
+          required: true
+          description: 出行日期，必须是有效日历日期，且位于天气服务实际支持的预报范围内。
+          schema:
+            type: string
+            format: date
+          example: "2026-10-20"
+      responses:
+        "200":
+          description: 请求已处理，返回天气查询 HTML 页面；页面可显示天气结果、候选城市或可理解的错误提示。
+          content:
+            text/html:
+              schema:
+                type: string
+                description: 服务端渲染后的 HTML 页面。
+        "400":
+          description: 请求参数格式错误或缺少必填参数。实际表单流程应重新渲染页面并展示提示。
+          content:
+            text/html:
+              schema:
+                type: string
+                description: 包含输入错误提示的 HTML 页面。
+        "503":
+          description: 天气服务不可用，无法完成查询；页面应说明服务暂不可用，不得展示伪造天气数据。
+          content:
+            text/html:
+              schema:
+                type: string
+                description: 包含天气服务异常提示的 HTML 页面。
+
+  /plan/generate:
+    post:
+      tags:
+        - TravelPlan
+      operationId: generateTravelPlan
+      summary: 根据天气和活动偏好生成单日出行计划
+      description: |
+        接收 HTML 表单提交的出行条件。服务端校验参数后查询对应日期天气，
+        再通过 Java 规则生成计划，最后返回 plan 页面。
+        天气条件优先于普通活动偏好；天气数据不足时不得编造天气结论。
+      requestBody:
+        required: true
+        description: Thymeleaf 表单使用 application/x-www-form-urlencoded 提交。
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/TravelRequest"
+            examples:
+              outdoorTrip:
+                summary: 户外游览示例
+                value:
+                  city: 广州
+                  date: "2026-10-20"
+                  activityPreference: OUTDOOR
+      responses:
+        "200":
+          description: 请求已处理，返回计划结果 HTML 页面；若业务上无法生成可靠计划，页面应展示明确原因。
+          content:
+            text/html:
+              schema:
+                type: string
+                description: 服务端渲染后的出行计划页面。
+        "400":
+          description: 表单参数缺失、格式错误或业务校验失败。页面应保留可恢复的输入并显示错误提示。
+          content:
+            text/html:
+              schema:
+                type: string
+                description: 包含参数校验错误的 HTML 页面。
+        "503":
+          description: 天气服务超时或不可用。页面应展示友好提示，不得用当前天气替代指定日期预报。
+          content:
+            text/html:
+              schema:
+                type: string
+                description: 包含天气服务异常提示的 HTML 页面。
+
+components:
+  schemas:
+    # ------------------------------------------------------------------
+    # 1. 用户提交的出行请求
+    # 与 Java DTO：TravelRequest 对应。
+    # 表单字段名必须与这里的 properties 名称一致。
+    # ------------------------------------------------------------------
+    TravelRequest:
+      type: object
+      required:
+        - city
+        - date
+        - activityPreference
+      additionalProperties: false
+      properties:
+        city:
+          type: string
+          minLength: 1
+          description: |
+            目的地城市名称。服务端必须 trim 后检查，不能只含空格。
+            城市名称用于地理编码；若有多个匹配地点，应让用户确认或要求补充地区信息。
+          example: 广州
+        date:
+          type: string
+          format: date
+          description: |
+            单日出行日期，格式为 YYYY-MM-DD。
+            必须是有效日历日期，且在 Open-Meteo 当前可用预报范围内；
+            超出范围时不得回退到当前天气。
+          example: "2026-10-20"
+        activityPreference:
+          type: string
+          description: 活动偏好。前端提交值必须使用以下英文枚举，不要提交中文显示文本。
+          enum:
+            - OUTDOOR
+            - INDOOR
+            - FOOD
+          x-enum-descriptions:
+            OUTDOOR: 户外游览
+            INDOOR: 室内休闲
+            FOOD: 美食体验
+          example: OUTDOOR
+      # 第一版暂不包含预算、同行人数；需求文档将其列为 P1，可在后续版本扩展。
+
+    # ------------------------------------------------------------------
+    # 2. 标准化后的天气数据
+    # 与 Java DTO：WeatherData 对应。
+    # 这是本项目内部使用的数据模型，不代表直接透传 Open-Meteo 原始 JSON。
+    # ------------------------------------------------------------------
+    WeatherData:
+      type: object
+      required:
+        - date
+      properties:
+        city:
+          type: string
+          description: 经地理编码确认的城市/地点名称。
+          example: 广州
+        adminArea:
+          type: string
+          nullable: true
+          description: 行政区或地区信息；地理编码未提供时为 null。
+          example: 广东省
+        country:
+          type: string
+          nullable: true
+          description: 国家或地区名称；地理编码未提供时为 null。
+          example: 中国
+        latitude:
+          type: number
+          format: double
+          description: 地理编码返回的纬度，用于天气查询。
+          example: 23.1291
+        longitude:
+          type: number
+          format: double
+          description: 地理编码返回的经度，用于天气查询。
+          example: 113.2644
+        date:
+          type: string
+          format: date
+          description: 天气预报对应的当地日期，必须与用户选择的日期一致。
+          example: "2026-10-20"
+        weatherCode:
+          type: integer
+          nullable: true
+          description: |
+            Open-Meteo 返回的 WMO 天气代码。未知或缺失时为 null/未知状态，
+            不得默认映射为晴天。业务规则应对代码进行显式映射。
+          example: 3
+        maxTemp:
+          type: number
+          format: double
+          nullable: true
+          description: 当日最高温度，单位为摄氏度（°C）；缺失时为 null。
+          example: 25.4
+        minTemp:
+          type: number
+          format: double
+          nullable: true
+          description: 当日最低温度，单位为摄氏度（°C）；缺失时为 null。
+          example: 18.2
+        precipitationProbability:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: 降水概率，单位为百分比（%）；数据源未提供时为 null，不得当作 0%。
+          example: 60
+        precipitation:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          description: 当日降水量，单位为毫米（mm）；数据源未提供时为 null。
+          example: 2.4
+        windSpeed:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          description: 风速，统一使用 km/h；数据源未提供时为 null。
+          example: 18.0
+        source:
+          type: string
+          description: 天气数据来源标识。
+          example: Open-Meteo
+      # 字段语义约定：
+      # - 外部数据缺失时，允许 nullable 字段为 null；不要用 0、晴天或正常天气代替缺失值。
+      # - 若天气代码和温度等关键数据不足以支持某项判断，跳过该判断并在结果中说明信息不足。
+      # - 后端请求 Open-Meteo 时应显式请求与上述单位一致的数据；不要依赖隐式默认单位。
+
+    # ------------------------------------------------------------------
+    # 3. 单日计划结果
+    # 与 Java DTO：TravelPlan 对应。
+    # 计划字段是页面展示的业务结果，不要求真实景点名称、票价或精确路线。
+    # ------------------------------------------------------------------
+    TravelPlan:
+      type: object
+      required:
+        - city
+        - date
+        - weatherSummary
+        - morningActivity
+        - afternoonActivity
+        - eveningActivity
+        - clothingAdvice
+        - itemsToPack
+        - warnings
+      properties:
+        city:
+          type: string
+          description: 计划目的地名称。
+          example: 广州
+        date:
+          type: string
+          format: date
+          description: 计划对应的出行日期。
+          example: "2026-10-20"
+        weatherSummary:
+          type: string
+          description: |
+            天气概况，应包含可用天气信息；若核心数据不足，应明确说明无法完整判断，
+            不得编造晴雨、温度或其他天气结论。
+          example: 多云，最低温度约 18°C，最高温度约 25°C
+        morningActivity:
+          type: string
+          description: 上午活动建议；可按天气调整，建议活动类型而非虚构真实景点。
+          example: 天气条件允许时可安排公园步行；出发前查看最新天气
+        afternoonActivity:
+          type: string
+          description: 下午活动建议；应考虑降雨、高温、低温和大风等条件。
+          example: 如出现降雨，可改为室内休闲活动
+        eveningActivity:
+          type: string
+          description: 晚间活动建议。
+          example: 可安排美食体验，并根据天气准备合适衣物
+        clothingAdvice:
+          type: string
+          description: 基于可用温度等数据生成的穿衣建议；数据不足时应明确说明。
+          example: 建议准备薄外套
+        itemsToPack:
+          type: array
+          description: 随身物品建议清单；无额外建议时可为空数组。
+          items:
+            type: string
+          example:
+            - 雨伞
+            - 饮用水
+        warnings:
+          type: array
+          description: 天气及出行注意事项；没有已知提醒时可为空数组，不得隐瞒已识别风险。
+          items:
+            type: string
+          example:
+            - 如降雨概率较高，请携带雨具
+      # 所有必需字段都应返回。信息不足时用明确的说明文字表达，不要省略字段或伪造结论。
+
+    # ------------------------------------------------------------------
+    # 4. 统一错误语义
+    # 第一版 Thymeleaf 表单通常通过 HTML 页面展示错误，不要求直接返回此 JSON。
+    # 如未来增加 JSON/AJAX 接口，应使用此结构，前端分支应依赖 code 而非 message。
+    # ------------------------------------------------------------------
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: 稳定的机器可读错误码；代码逻辑不得依赖 message 的具体文案。
+          enum:
+            - INVALID_INPUT
+            - CITY_NOT_FOUND
+            - CITY_AMBIGUOUS
+            - OUT_OF_FORECAST_RANGE
+            - API_TIMEOUT
+            - WEATHER_SERVICE_UNAVAILABLE
+            - WEATHER_DATA_INCOMPLETE
+            - INTERNAL_ERROR
+          example: OUT_OF_FORECAST_RANGE
+        message:
+          type: string
+          description: 面向用户的简洁、可理解提示；不得包含堆栈、密钥或内部敏感信息。
+          example: 无法获取该日期的可靠预报，请更换日期。
+        details:
+          type: array
+          description: 可选的字段级校验或辅助说明；没有额外信息时可省略或返回空数组。
+          items:
+            type: string
+          example:
+            - date 必须处于可用预报范围内
+      # 错误码建议映射：
+      # INVALID_INPUT：必填字段缺失、空白城市、非法日期或活动偏好不在枚举中。
+      # CITY_NOT_FOUND：地理编码未找到匹配地点。
+      # CITY_AMBIGUOUS：存在多个合理候选地点；优先展示候选项供用户确认。
+      # OUT_OF_FORECAST_RANGE：日期超出天气服务可用预报范围。
+      # API_TIMEOUT：天气服务请求超时。
+      # WEATHER_SERVICE_UNAVAILABLE：天气服务返回错误或暂时不可用（非超时）。
+      # WEATHER_DATA_INCOMPLETE：数据不足以支持必要的天气判断。
+      # INTERNAL_ERROR：未预期的服务端错误；对用户只显示通用提示。
+
+  # --------------------------------------------------------------------
+  # 全局约定
+  # --------------------------------------------------------------------
+  # 1. 时间与日期：
+  #    date 始终采用 YYYY-MM-DD；解释为目的地当地日期，不附带时区。
+  # 2. 字符串：
+  #    city 去除首尾空白后不能为空；枚举值必须精确匹配。
+  # 3. 缺失数据：
+  #    缺失不等于 0，也不等于晴天/无降雨/无大风。按字段语义跳过相关判断并提示。
+  # 4. 天气规则：
+  #    规则阈值集中配置；天气条件优先于普通活动偏好。
+  # 5. 页面响应：
+  #    当前契约定义的是 HTML 页面响应。若实现 JSON 接口，应新增或明确对应的 JSON 响应契约，
+  #    不要让同一个响应在没有约定的情况下随机返回 HTML 或 JSON。
+  # 6. 外部天气服务：
+  #    Open-Meteo 原始响应应在 client 层解析并转换为 WeatherData；不要让 controller 或模板依赖原始 JSON。
+  # 7. HTTP 状态码：
+  #    页面流程下，业务错误可以通过 200 页面呈现（例如城市未找到或城市歧义）；
+  #    请求格式错误使用 400，天气服务不可用使用 503。团队应在 Controller 中统一执行此约定。
