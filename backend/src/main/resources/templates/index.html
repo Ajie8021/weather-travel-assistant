@@ -1,13 +1,63 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>天气与出行规划助手 · 慢游指南</title><link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css"><script defer th:src="@{/js/app.js}" src="/js/app.js"></script></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8f5">
+  <title>天气与出行规划助手 · 慢游指南</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css">
+  <script defer th:src="@{/js/app.js}" src="/js/app.js"></script>
+</head>
 <body>
-<header class="site-header"><a class="brand" th:href="@{/}" href="/"><span class="brand-mark">W</span><span>慢游指南<small>WEATHER × TRAVEL</small></span></a><span class="header-note">用天气，安排刚刚好的出行</span></header>
-<main>
-  <section class="hero"><div><p class="eyebrow">YOUR DAY, WELL PLANNED</p><h1>出发前，先看看<br><em>天气想告诉你什么。</em></h1><p class="intro">输入目的地和日期，了解天气情况，再生成一份贴合天气与兴趣的单日安排。</p><div class="hero-points"><span>01　目的地天气</span><span>02　按偏好规划</span><span>03　出行提醒</span></div></div><div class="weather-art" aria-hidden="true"><div class="sun"></div><div class="cloud cloud-back"></div><div class="cloud cloud-front"></div><span class="art-caption">出发的好心情<br><b>从准备开始</b></span></div></section>
-  <section class="planner-card"><div class="section-top"><div><p class="eyebrow">PLAN A DAY OUT</p><h2>开始规划</h2></div><span class="step-pill">1　查询天气</span></div>
-    <form class="search-form" th:action="@{/weather}" action="/weather" method="get"><label class="field"><span>目的地城市</span><input type="text" name="city" autocomplete="address-level2" placeholder="例如：广州" minlength="1" required></label><label class="field"><span>出行日期</span><input type="date" name="date" required></label><button class="button primary" type="submit">查询天气 <b aria-hidden="true">→</b></button></form><p class="hint">天气预报有可查询范围，选好日期后我们会确认数据是否可用。</p>
-  </section>
-  <section class="how-section"><p class="eyebrow centered">A LITTLE PREPARATION, A BETTER TRIP</p><h2>三步，准备好出发</h2><div class="steps"><article><span>01</span><b class="step-icon">⌖</b><h3>告诉我们去哪里</h3><p>选择目的地和日期，先了解当天的天气。</p></article><article><span>02</span><b class="step-icon warm">✳</b><h3>选一种喜欢的方式</h3><p>户外游览、室内休闲或美食体验，按兴趣来。</p></article><article><span>03</span><b class="step-icon blue">↗</b><h3>带上计划轻松出发</h3><p>查看活动、穿衣建议和随身物品提醒。</p></article></div></section>
-</main><footer><span>慢一点，也能看见更多。</span><span>天气数据由 Open-Meteo 提供</span></footer>
-</body></html>
+  <header class="site-header">
+    <a class="brand" th:href="@{/}" href="/">
+      <span class="brand-mark" aria-hidden="true">W</span>
+      <span>慢游指南<small>WEATHER × TRAVEL</small></span>
+    </a>
+    <span class="header-note">用天气，安排刚刚好的出行</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">YOUR DAY, WELL PLANNED</p>
+        <h1>出发前，先看看<br><em>天气想告诉你什么。</em></h1>
+        <p class="intro">输入目的地和日期，查看天气，再生成一份贴合天气与兴趣的单日安排。</p>
+        <div class="hero-points"><span>01　目的地天气</span><span>02　按偏好规划</span><span>03　出行提醒</span></div>
+      </div>
+      <div class="weather-art" aria-hidden="true">
+        <div class="sun"></div><div class="cloud cloud-back"></div><div class="cloud cloud-front"></div>
+        <span class="art-caption">出发的好心情<br><b>从准备开始</b></span>
+      </div>
+    </section>
+
+    <section class="planner-card" aria-labelledby="planner-title">
+      <div class="section-top">
+        <div><p class="eyebrow">PLAN A DAY OUT</p><h2 id="planner-title">开始规划</h2></div>
+        <span class="step-pill">1　查询天气</span>
+      </div>
+      <form class="search-form" th:action="@{/weather}" action="/weather" method="get">
+        <label class="field" for="city"><span>目的地城市</span>
+          <input id="city" type="text" name="city" autocomplete="address-level2" placeholder="例如：广州或 Guangzhou" maxlength="100" required>
+        </label>
+        <label class="field" for="date"><span>出行日期</span>
+          <input id="date" type="date" name="date" required>
+        </label>
+        <button class="button primary" type="submit">查询天气 <b aria-hidden="true">→</b></button>
+      </form>
+      <p class="hint">天气预报目前支持查询未来 15 天，请选择有效日期。</p>
+    </section>
+
+    <section class="how-section" aria-labelledby="steps-title">
+      <p class="eyebrow centered">A LITTLE PREPARATION, A BETTER TRIP</p>
+      <h2 id="steps-title">三步，准备好出发</h2>
+      <div class="steps">
+        <article><span>01</span><b class="step-icon" aria-hidden="true">⌖</b><h3>告诉我们去哪里</h3><p>选择目的地和日期，先了解当天的天气。</p></article>
+        <article><span>02</span><b class="step-icon warm" aria-hidden="true">✳</b><h3>选一种喜欢的方式</h3><p>户外游览、室内休闲或美食体验，按兴趣来。</p></article>
+        <article><span>03</span><b class="step-icon blue" aria-hidden="true">↗</b><h3>带上计划轻松出发</h3><p>查看活动、穿衣建议和随身物品提醒。</p></article>
+      </div>
+    </section>
+  </main>
+  <footer><span>慢一点，也能看见更多。</span><span>天气数据由 Open-Meteo 提供</span></footer>
+</body>
+</html>
