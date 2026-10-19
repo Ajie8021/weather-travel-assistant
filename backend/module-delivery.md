@@ -99,7 +99,7 @@ mvn test
 
 测试结果应以最终一次完整测试运行的实际输出为准。
 
-<img src="D:/typora/save/image-20261019122421849.png" alt="image-20261019122421849" style="zoom:67%;" />
+<img width="1269" height="630" alt="image" src="https://github.com/user-attachments/assets/a3b15347-f559-43f9-bc38-86adc8427f6c" />
 
 ## 5. 交付文件
 
