@@ -29,9 +29,31 @@ public class WeatherService {
         JsonNode daily = client.getForecast(selected, date).path("daily");
         JsonNode returnedDate = first(daily, "time");
         if (returnedDate == null || !date.toString().equals(returnedDate.asText())) throw new WeatherException(WeatherErrorCode.WEATHER_DATA_INCOMPLETE, "天气服务未返回所选日期的数据");
-        return new WeatherData(selected.name(), selected.adminArea(), selected.country(), selected.latitude(), selected.longitude(), date,
-                optionalInt(daily, "weather_code"), optionalDouble(daily, "temperature_2m_max"), optionalDouble(daily, "temperature_2m_min"),
-                optionalInt(daily, "precipitation_probability_max"), optionalDouble(daily, "precipitation_sum"), optionalDouble(daily, "wind_speed_10m_max"), "Open-Meteo");
+
+        // 创建天气数据对象
+        WeatherData weather = new WeatherData();
+
+        // 设置城市信息
+        weather.setCity(selected.name());
+        weather.setAdminArea(selected.adminArea());
+        weather.setCountry(selected.country());
+        weather.setLatitude(selected.latitude());
+        weather.setLongitude(selected.longitude());
+
+        // 设置日期与天气信息
+        weather.setDate(date);
+        weather.setWeatherCode(optionalInt(daily, "weather_code"));
+        weather.setMaxTemp(optionalDouble(daily, "temperature_2m_max"));
+        weather.setMinTemp(optionalDouble(daily, "temperature_2m_min"));
+        weather.setPrecipitationProbability(
+                optionalInt(daily, "precipitation_probability_max"));
+        weather.setPrecipitation(optionalDouble(daily, "precipitation_sum"));
+        weather.setWindSpeed(optionalDouble(daily, "wind_speed_10m_max"));
+
+        // 设置数据来源
+        weather.setSource("Open-Meteo");
+
+        return weather;
     }
     private JsonNode first(JsonNode daily, String field) { JsonNode a = daily.path(field); return a.isArray() && !a.isEmpty() ? a.get(0) : null; }
     private Double optionalDouble(JsonNode d, String f) { JsonNode v = first(d, f); return v != null && v.isNumber() && Double.isFinite(v.doubleValue()) ? v.doubleValue() : null; }
