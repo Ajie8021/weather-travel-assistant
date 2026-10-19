@@ -154,9 +154,9 @@ components:
             - INDOOR
             - FOOD
           x-enum-descriptions:
-            OUTDOOR: 户外游览
-            INDOOR: 室内休闲
-            FOOD: 美食体验
+            - 户外游览
+            - 室内休闲
+            - 美食体验
           example: OUTDOOR
       # 第一版暂不包含预算、同行人数；需求文档将其列为 P1，可在后续版本扩展。
 
