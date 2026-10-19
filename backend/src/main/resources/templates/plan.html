@@ -1,16 +1,54 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>你的出行计划 · 慢游指南</title><link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css"></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>你的出行计划 · 慢游指南</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css">
+</head>
 <body>
-<header class="site-header"><a class="brand" th:href="@{/}" href="/"><span class="brand-mark">W</span><span>慢游指南<small>WEATHER × TRAVEL</small></span></a><a class="back-link" th:href="@{/}" href="/">← 重新规划</a></header>
-<main class="page-main plan-main"><div class="page-intro"><p class="eyebrow">YOUR DAY, READY TO GO</p><h1>这一天，<em>安排好了。</em></h1><p>把天气和喜欢的活动放在一起，轻松开始你的旅程。</p></div>
-  <div class="notice" role="alert" th:if="${errorMessage != null" th:text="${errorMessage">暂时无法生成计划，请稍后重试。</div>
-  <article class="plan-card" th:if="${plan != null"><div class="plan-heading"><div><p class="eyebrow">YOUR ONE-DAY PLAN</p><h2><span th:text="${plan.city">广州</span><small th:text="${plan.date">2026-10-20</small></h2></div><p class="weather-badge"><b>☼</b><span th:text="${plan.weatherSummary">多云，18°C 至 25°C</span></p></div>
-    <div class="timeline"><section><div class="time-label"><i></i>上午</div><div><small>MORNING</small><h3>慢慢开始</h3><p th:text="${plan.morningActivity">天气合适时，可以去附近公园散步。</p></div></section><section><div class="time-label"><i></i>下午</div><div><small>AFTERNOON</small><h3>留一点时间给发现</h3><p th:text="${plan.afternoonActivity">如果天气变化，不妨改去室内空间休息。</p></div></section><section><div class="time-label"><i></i>晚上</div><div><small>EVENING</small><h3>用一顿喜欢的晚餐收尾</h3><p th:text="${plan.eveningActivity">安排一场轻松的美食体验。</p></div></section></div>
-    <div class="advice-grid"><section><b class="advice-icon">◌</b><div><small>WHAT TO WEAR</small><h3>穿衣建议</h3><p th:text="${plan.clothingAdvice">根据当天温度准备合适衣物。</p></div></section><section><b class="advice-icon warm">⌑</b><div><small>DON'T FORGET</small><h3>随身带上</h3><ul><li th:each="item : ${plan.itemsToPack" th:text="${item">饮用水</li><li th:if="${#lists.isEmpty(plan.itemsToPack)" class="muted">暂无额外物品建议</li></ul></div></section></div>
-    <section class="warnings" th:if="${!#lists.isEmpty(plan.warnings)"><b>!</b><div><h3>出行提醒</h3><ul><li th:each="warning : ${plan.warnings" th:text="${warning">出发前请再次确认天气。</li></ul></div></section>
-  </article>
-  <section class="empty-card" th:if="${plan == null && errorMessage == null"><b>✳</b><h2>计划还没有生成</h2><p>先查询天气并选择一种活动偏好，我们再为你安排一天。</p><a class="button primary" th:href="@{/}" href="/">开始规划</a></section>
-  <div class="page-actions"><a class="button secondary" th:href="@{/}" href="/">再规划一次</a></div><p class="disclaimer">计划仅供出行参考。天气预报可能变化，出发前请查看最新信息。</p>
-</main><footer><span>慢一点，也能看见更多。</span><span>天气数据由 Open-Meteo 提供</span></footer>
-</body></html>
+  <header class="site-header">
+    <a class="brand" th:href="@{/}" href="/"><span class="brand-mark" aria-hidden="true">W</span><span>慢游指南<small>WEATHER × TRAVEL</small></span></a>
+    <a class="back-link" th:href="@{/}" href="/">← 重新规划</a>
+  </header>
+  <main class="page-main plan-main">
+    <div class="page-intro">
+      <p class="eyebrow">YOUR DAY, READY TO GO</p>
+      <h1>这一天，<em>安排好了。</em></h1>
+      <p>把天气和喜欢的活动放在一起，轻松开始你的旅程。</p>
+    </div>
+
+    <div class="notice" role="alert" aria-live="polite" th:if="${errorMessage != null}" th:text="${errorMessage}">
+      暂时无法生成计划，请稍后重试。
+    </div>
+
+    <article class="plan-card" th:if="${plan != null}">
+      <div class="plan-heading">
+        <div><p class="eyebrow">YOUR ONE-DAY PLAN</p><h2><span th:text="${plan.city}">广州</span><small th:text="${plan.date}">2026-10-20</small></h2></div>
+        <p class="weather-badge"><b aria-hidden="true">☼</b><span th:text="${plan.weatherSummary}">多云，18°C 至 25°C</span></p>
+      </div>
+      <div class="timeline">
+        <section><div class="time-label"><i aria-hidden="true"></i>上午</div><div><small>MORNING</small><h3>慢慢开始</h3><p th:text="${plan.morningActivity}">天气合适时，可以去附近公园散步。</p></div></section>
+        <section><div class="time-label"><i aria-hidden="true"></i>下午</div><div><small>AFTERNOON</small><h3>留一点时间给发现</h3><p th:text="${plan.afternoonActivity}">如果天气变化，不妨改去室内空间休息。</p></div></section>
+        <section><div class="time-label"><i aria-hidden="true"></i>晚上</div><div><small>EVENING</small><h3>用一顿喜欢的晚餐收尾</h3><p th:text="${plan.eveningActivity}">安排一场轻松的美食体验。</p></div></section>
+      </div>
+      <div class="advice-grid">
+        <section><b class="advice-icon" aria-hidden="true">◌</b><div><small>WHAT TO WEAR</small><h3>穿衣建议</h3><p th:text="${plan.clothingAdvice}">根据当天温度准备合适衣物。</p></div></section>
+        <section><b class="advice-icon warm" aria-hidden="true">⌑</b><div><small>DON'T FORGET</small><h3>随身带上</h3><ul><li th:each="item : ${plan.itemsToPack}" th:text="${item}">饮用水</li><li class="muted" th:if="${#lists.isEmpty(plan.itemsToPack)}">暂无额外物品建议</li></ul></div></section>
+      </div>
+      <section class="warnings" th:if="${!#lists.isEmpty(plan.warnings)}">
+        <b aria-hidden="true">!</b><div><h3>出行提醒</h3><ul><li th:each="warning : ${plan.warnings}" th:text="${warning}">出发前请再次确认天气。</li></ul></div>
+      </section>
+    </article>
+
+    <section class="empty-card" th:if="${plan == null and errorMessage == null}">
+      <b aria-hidden="true">✳</b><h2>计划还没有生成</h2>
+      <p>先查询天气并选择一种活动偏好，我们再为你安排一天。</p>
+      <a class="button primary" th:href="@{/}" href="/">开始规划</a>
+    </section>
+    <div class="page-actions"><a class="button secondary" th:href="@{/}" href="/">再规划一次</a></div>
+    <p class="disclaimer">计划仅供出行参考。天气预报可能变化，出发前请查看最新信息。</p>
+  </main>
+  <footer><span>慢一点，也能看见更多。</span><span>天气数据由 Open-Meteo 提供</span></footer>
+</body>
+</html>
