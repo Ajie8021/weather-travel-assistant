@@ -180,6 +180,9 @@ public class TravelPlanService {
 
         // 雷暴、冻雨等严重天气优先级最高，避免推荐户外活动。
         if (analysis.hasSevereWeather()) {
+            if ("FOOD".equals(preference)) {
+                return "建议选择室内餐厅体验当地美食，避免户外活动";
+            }
             return period + "：安排室内休闲活动，如室内展览、文化体验或休息；"
                     + "避免户外游览，并关注天气变化。";
         }

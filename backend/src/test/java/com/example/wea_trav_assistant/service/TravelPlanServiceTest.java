@@ -151,6 +151,7 @@ class TravelPlanServiceTest {
         TravelPlan plan = travelPlanService.generatePlan(
                 createRequest("OUTDOOR"), createClearWeather());
 
+        // 基础结构检查
         assertEquals("广州", plan.getCity());
         assertEquals("2026-10-20", plan.getDate());
         assertNotNull(plan.getWeatherSummary());
@@ -160,6 +161,13 @@ class TravelPlanServiceTest {
         assertNotNull(plan.getClothingAdvice());
         assertNotNull(plan.getItemsToPack());
         assertNotNull(plan.getWarnings());
+
+        // 针对空字符串的检测
+        assertFalse(plan.getWeatherSummary().isBlank());
+        assertFalse(plan.getMorningActivity().isBlank());
+        assertFalse(plan.getAfternoonActivity().isBlank());
+        assertFalse(plan.getEveningActivity().isBlank());
+        assertFalse(plan.getClothingAdvice().isBlank());
     }
 
     @Test
@@ -168,9 +176,13 @@ class TravelPlanServiceTest {
         WeatherData weather = createClearWeather();
         weather.setDate(targetDate.plusDays(1));
 
-        assertThrows(WeatherDataIncompleteException.class,
+        WeatherDataIncompleteException exception = assertThrows(
+                WeatherDataIncompleteException.class,
                 () -> travelPlanService.generatePlan(
                         createRequest("OUTDOOR"), weather));
+
+        assertEquals("WEATHER_DATA_INCOMPLETE",
+                exception.getErrorCode());
     }
 
     @Test
@@ -179,5 +191,65 @@ class TravelPlanServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> travelPlanService.generatePlan(
                         createRequest("SHOPPING"), createClearWeather()));
+    }
+
+    @Test
+    void unknownWeatherCodeShouldNotBeTreatedAsClear() {
+        // 未知天气代码不能被当作晴朗天气，
+        // 应提供保守的活动建议并提示用户核实天气。
+        WeatherData weather = createClearWeather();
+        weather.setWeatherCode(999);
+
+        TravelPlan plan = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), weather);
+
+        assertTrue(plan.getWeatherSummary().contains("未知"));
+
+        assertTrue(plan.getMorningActivity().contains("室内"));
+        assertTrue(plan.getAfternoonActivity().contains("室内"));
+        assertTrue(plan.getEveningActivity().contains("室内"));
+
+        assertFalse(plan.getWarnings().isEmpty());
+    }
+
+    @Test
+    void multipleWeatherRisksShouldAdjustAllActivities() {
+        // 同时出现雷暴、高温、低温、大风和高降雨概率，
+        // 验证严重天气优先调整活动，同时保留风险提示。
+        WeatherData weather = createClearWeather();
+        weather.setWeatherCode(95);
+        weather.setMaxTemp(35.0);
+        weather.setMinTemp(5.0);
+        weather.setWindSpeed(30.0);
+        weather.setPrecipitationProbability(50);
+
+        TravelPlan plan = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), weather);
+
+        assertTrue(plan.getMorningActivity().contains("室内"));
+        assertTrue(plan.getAfternoonActivity().contains("室内"));
+        assertTrue(plan.getEveningActivity().contains("室内"));
+
+        assertFalse(plan.getWarnings().isEmpty());
+        assertFalse(plan.getItemsToPack().isEmpty());
+    }
+
+    @Test
+    void foodPreferenceShouldRecommendIndoorDiningDuringThunderstorm() {
+        // 雷暴时优先保障安全，美食偏好应转为室内餐饮建议。
+        WeatherData weather = createClearWeather();
+        weather.setWeatherCode(95);
+
+        TravelPlan plan = travelPlanService.generatePlan(
+                createRequest("FOOD"), weather);
+
+        assertTrue(plan.getMorningActivity().contains("室内"));
+        assertTrue(plan.getMorningActivity().contains("美食"));
+
+        assertTrue(plan.getAfternoonActivity().contains("室内"));
+        assertTrue(plan.getAfternoonActivity().contains("美食"));
+
+        assertTrue(plan.getEveningActivity().contains("室内"));
+        assertTrue(plan.getEveningActivity().contains("美食"));
     }
 }

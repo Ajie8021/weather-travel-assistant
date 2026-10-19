@@ -123,28 +123,31 @@ class TravelRuleServiceTest {
     }
 
     @Test
-    void shouldKeepSevereAndOrdinaryRisksTogether() {
-        // 雷暴、高温和大风同时出现时，不能只保留严重天气风险。
+    void shouldKeepAllRisksWhenMultipleRisksOccur() {
+        // 同时触发雷暴、高温、低温、大风和高降雨概率。
         WeatherData weather = createNormalWeather();
         weather.setWeatherCode(95);
-        weather.setMaxTemp(36.0);
-        weather.setWindSpeed(35.0);
+        weather.setMaxTemp(35.0);
+        weather.setMinTemp(5.0);
+        weather.setWindSpeed(30.0);
+        weather.setPrecipitationProbability(50);
 
         TravelRuleService.WeatherAnalysis result =
                 ruleService.analyze(targetDate, weather);
 
         assertTrue(result.hasSevereWeather());
-
         assertTrue(result.needsOutdoorActivityAdjustment());
 
         assertTrue(result.getRisks().contains(
                 TravelRuleService.WeatherRisk.SEVERE_WEATHER));
-
         assertTrue(result.getRisks().contains(
                 TravelRuleService.WeatherRisk.HIGH_TEMPERATURE));
-
+        assertTrue(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.LOW_TEMPERATURE));
         assertTrue(result.getRisks().contains(
                 TravelRuleService.WeatherRisk.HIGH_WIND));
+        assertTrue(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.HIGH_PRECIPITATION_PROBABILITY));
     }
 
     @Test
@@ -201,6 +204,22 @@ class TravelRuleServiceTest {
     }
 
     @Test
+    void shouldRejectNullWeatherDate() {
+        // 天气数据的日期缺失时，无法确认天气是否对应用户选择的出行日期。
+        WeatherData weather = createNormalWeather();
+        weather.setDate(null);
+
+        WeatherDataIncompleteException exception = assertThrows(
+                WeatherDataIncompleteException.class,
+                () -> ruleService.analyze(targetDate, weather));
+
+        // 验证返回的业务错误码符合接口契约。
+        assertEquals(
+                "WEATHER_DATA_INCOMPLETE",
+                exception.getErrorCode());
+    }
+
+    @Test
     void shouldNotTreatMissingPrecipitationProbabilityAsZero() {
         // 降雨概率缺失时，不应认定为无降雨风险。
         WeatherData weather = createNormalWeather();
@@ -228,5 +247,95 @@ class TravelRuleServiceTest {
         assertTrue(result.getRisks().isEmpty());
         assertFalse(result.hasSevereWeather());
         assertFalse(result.needsOutdoorActivityAdjustment());
+    }
+
+    @Test
+    void shouldAllowLimitedAnalysisWhenBothTemperaturesAreMissing() {
+        // 天气代码有效，但最高温和最低温缺失时，仍允许进行有限分析。
+        WeatherData weather = createNormalWeather();
+        weather.setMaxTemp(null);
+        weather.setMinTemp(null);
+
+        TravelRuleService.WeatherAnalysis result =
+                assertDoesNotThrow(
+                        () -> ruleService.analyze(targetDate, weather));
+
+        // 天气代码仍然有效，因此天气类型应保持为晴朗。
+        assertEquals(
+                TravelRuleService.WeatherCondition.CLEAR,
+                result.getCondition());
+
+        // 温度缺失必须有信息提示，不能将缺失温度当作 0°C。
+        assertTrue(result.getInformationNotes().stream()
+                .anyMatch(note -> note.contains("最高温")));
+
+        assertTrue(result.getInformationNotes().stream()
+                .anyMatch(note -> note.contains("最低温")));
+    }
+
+    @Test
+    void shouldKeepUnknownConditionWhenCodeIsUnknownButTemperaturesAreValid() {
+        // 未知天气代码不能因温度有效而被错误地解释为晴朗。
+        WeatherData weather = createNormalWeather();
+        weather.setWeatherCode(999);
+        weather.setMaxTemp(25.0);
+        weather.setMinTemp(18.0);
+
+        TravelRuleService.WeatherAnalysis result =
+                assertDoesNotThrow(
+                        () -> ruleService.analyze(targetDate, weather));
+
+        assertEquals(
+                TravelRuleService.WeatherCondition.UNKNOWN,
+                result.getCondition());
+
+        assertTrue(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.UNKNOWN_WEATHER));
+
+        // 未知代码应通过信息提示明确告知用户。
+        assertTrue(result.getInformationNotes().stream()
+                .anyMatch(note -> note.contains("未知")));
+    }
+
+    @Test
+    void shouldRejectWeatherWithNullDate() {
+        // 天气数据没有日期时，无法确认其对应用户选择的出行日期。
+        WeatherData weather = createNormalWeather();
+        weather.setDate(null);
+
+        WeatherDataIncompleteException exception = assertThrows(
+                WeatherDataIncompleteException.class,
+                () -> ruleService.analyze(targetDate, weather));
+
+        assertEquals(
+                "WEATHER_DATA_INCOMPLETE",
+                exception.getErrorCode());
+    }
+
+    @Test
+    void shouldReportMissingWindSpeed() {
+        // 风速缺失时，应提示信息不足，而不是将风速当作 0。
+        WeatherData weather = createNormalWeather();
+        weather.setWindSpeed(null);
+
+        TravelRuleService.WeatherAnalysis result =
+                ruleService.analyze(targetDate, weather);
+
+        assertTrue(result.getInformationNotes().stream()
+                .anyMatch(note -> note.contains("风速")));
+    }
+
+    @Test
+    void shouldReportMissingPrecipitationAmount() {
+        // 降水量缺失时，应提示信息不足，而不是将降水量当作 0。
+        WeatherData weather = createNormalWeather();
+        weather.setPrecipitation(null);
+
+        TravelRuleService.WeatherAnalysis result =
+                ruleService.analyze(targetDate, weather);
+
+        assertTrue(result.getInformationNotes().stream()
+                .anyMatch(note -> note.contains("降水量")
+                        || note.contains("降水")));
     }
 }
