@@ -65,6 +65,70 @@ Controller主要负责接收请求、调用服务、选择页面和组织提示�
 
 规则服务可以使用内部 `WeatherAnalysis` 对象保存分析结果，但该类不是OpenAPI 公共数据结构；是否新增应结合现有代码决定。
 
+### 2.2.1 核心服务接口契约
+
+为避免模块并行开发时出现方法签名、返回类型和异常处理不一致的问题，核心服务接口约定如下。公共 DTO 的字段以 `travel-assistant.yaml` 及项目现有 DTO 为准。
+
+#### 1. 天气服务接口
+
+```java
+public WeatherData getWeather(TravelRequest request);
+```
+
+- **输入：** `TravelRequest`，包含目的地城市、出行日期和活动偏好。
+- **返回：** `WeatherData`，包含标准化后的地点信息、目标日期天气数据及数据来源。
+- **职责：** 完成地理编码、天气 API 调用、原始响应解析、数据标准化及天气数据有效性检查。
+- **异常：** 根据错误情况使用契约约定的错误语义，包括 `INVALID_INPUT`、`CITY_NOT_FOUND`、`CITY_AMBIGUOUS`、`OUT_OF_FORECAST_RANGE`、`API_TIMEOUT`、`WEATHER_SERVICE_UNAVAILABLE` 和 `WEATHER_DATA_INCOMPLETE`。
+- **约束：** 返回的天气日期必须与请求日期一致；缺失字段使用 `null`，不得用默认值伪造天气数据。
+- **禁止事项：** 不负责天气风险规则判断、活动推荐和出行计划生成。
+
+#### 2. 天气规则服务接口
+
+天气规则服务负责根据标准化天气数据识别天气类型、风险和数据完整性问题，不直接调用外部 API。
+
+推荐接口形式：
+
+```java
+public WeatherAnalysis analyze(
+        LocalDate requestedDate,
+        WeatherData weather
+);
+```
+
+- **输入：** 用户请求的出行日期及标准化天气数据。
+- **返回：** `WeatherAnalysis`，包含天气分类、风险集合、警告信息和数据缺失说明。
+- **职责：** 根据集中定义的天气代码映射和业务阈值完成规则判断。
+- **异常：** 当数据不足以支持必要判断，或天气日期与请求日期不一致时，按照约定处理；需要抛出业务异常时，使用契约规定的错误语义。
+- **约束：** 未知天气代码不得默认认定为晴天；不同风险应分别识别，不得无故遗漏。
+- **说明：** `WeatherAnalysis` 是内部分析对象，不属于对外 OpenAPI 公共 DTO。
+
+**注意：** 本方法签名需要与仓库中的实际 `TravelRuleService` 实现核对。如果现有代码已采用该签名，应以代码为准；如果实际签名不同，应由相关负责人协商后统一文档、调用方和测试，不得单方面改动。
+
+#### 3. 计划生成服务接口
+
+```java
+public TravelPlan generatePlan(
+        TravelRequest request,
+        WeatherData weather
+);
+```
+
+- **输入：** 用户出行请求 `TravelRequest` 和标准化天气数据 `WeatherData`。
+- **返回：** `TravelPlan`，包含天气概况、上午活动、下午活动、晚间活动、穿衣建议、携带物品及注意事项。
+- **职责：** 调用天气规则服务，根据天气分析结果与 `activityPreference` 生成单日出行计划。
+- **异常：** 不得吞掉下游业务异常；遇到数据不足或日期不匹配时，按统一错误约定处理。
+- **约束：** 必须综合考虑天气风险与活动偏好；不同字段之间的建议应保持一致，不得虚构具体景点、开放时间、票价或精确路线。
+- **禁止事项：** 不负责地理编码、外部天气 API 调用或原始天气 JSON 解析。
+
+#### 4. 跨模块协作约定
+
+1. `WeatherService` 向业务模块提供标准化的 `WeatherData`。
+2. `TravelPlanService` 接收 `TravelRequest` 和 `WeatherData`，调用 `TravelRuleService` 完成规则分析并生成 `TravelPlan`。
+3. Controller 负责请求接收、参数校验、服务调用、页面选择和提示信息组织，不重复实现业务规则。
+4. 页面层按照 `TravelPlan` 的既定字段展示结果，不直接调用天气 API。
+5. 共享 DTO、方法签名、错误码或字段语义需要变更时，相关模块负责人必须先协商，再同步更新代码、文档和测试。
+6. 单元测试优先使用构造的 DTO 或 Mock 对象，不依赖真实天气 API；跨模块联调另行验证。
+
 ### 2.3 异常处理职责
 
 - **请求校验层 / Controller：**
