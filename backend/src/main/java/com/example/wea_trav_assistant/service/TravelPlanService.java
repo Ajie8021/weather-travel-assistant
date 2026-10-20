@@ -99,6 +99,145 @@ public class TravelPlanService {
         return plan;
     }
 
+
+    /**
+     * 只修改当前计划中的一个时段。
+     *
+     * 业务约定：
+     * 1. 根据当前计划的城市和日期重新生成活动建议；
+     * 2. 只替换用户指定时段的活动字段；
+     * 3. 其余时段和天气相关字段保持原值；
+     * 4. 复用 generatePlan，避免重复实现天气风险判断。
+     *
+     * @param currentPlan 当前会话中已经生成的计划
+     * @param weather 当前计划对应的标准化天气数据
+     * @param period 要修改的时段：morning、afternoon、evening
+     * @param activityPreference 新时段的活动偏好
+     * @return 修改后的新计划，不直接修改传入的旧计划
+     */
+    public TravelPlan modifyPlanForPeriod(
+            TravelPlan currentPlan,
+            WeatherData weather,
+            String period,
+            String activityPreference) {
+
+        // 1. 检查当前计划，避免没有旧计划时执行局部修改。
+        if (currentPlan == null) {
+            throw new IllegalArgumentException("当前没有出行计划，请先生成计划");
+        }
+
+        // 2. 统一时段格式，并检查时段是否合法。
+        if (period == null || period.trim().isEmpty()) {
+            throw new IllegalArgumentException("请指定要修改的时段");
+        }
+
+        String normalizedPeriod = period.trim().toLowerCase(Locale.ROOT);
+
+        if (!"morning".equals(normalizedPeriod)
+                && !"afternoon".equals(normalizedPeriod)
+                && !"evening".equals(normalizedPeriod)) {
+            throw new IllegalArgumentException(
+                    "时段必须为 morning、afternoon 或 evening");
+        }
+
+        // 3. 检查活动偏好，不接受契约以外的值。
+        if (activityPreference == null
+                || activityPreference.trim().isEmpty()) {
+            throw new IllegalArgumentException("活动偏好不能为空");
+        }
+
+        String normalizedPreference =
+                activityPreference.trim().toUpperCase(Locale.ROOT);
+
+        if (!"OUTDOOR".equals(normalizedPreference)
+                && !"INDOOR".equals(normalizedPreference)
+                && !"FOOD".equals(normalizedPreference)) {
+            throw new IllegalArgumentException(
+                    "活动偏好必须为 OUTDOOR、INDOOR 或 FOOD");
+        }
+
+        // 4. 检查计划自身的城市和日期是否完整。
+        if (currentPlan.getCity() == null
+                || currentPlan.getCity().trim().isEmpty()
+                || currentPlan.getDate() == null
+                || currentPlan.getDate().trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "当前计划缺少城市或日期，无法修改");
+        }
+
+        // 5. 构造新请求，仍然使用原计划的城市和日期。
+        // 局部修改不应意外改变用户已经确认的出行条件。
+        final java.time.LocalDate planDate;
+        try {
+            planDate = java.time.LocalDate.parse(currentPlan.getDate());
+        } catch (java.time.format.DateTimeParseException ex) {
+            throw new IllegalArgumentException(
+                    "当前计划日期格式错误，无法修改", ex);
+        }
+
+        TravelRequest updatedRequest = new TravelRequest();
+        updatedRequest.setCity(currentPlan.getCity());
+        updatedRequest.setDate(planDate);
+        updatedRequest.setActivityPreference(normalizedPreference);
+
+        // 6. 重新计算新偏好下的活动建议。
+        // generatePlan 内部会校验天气日期、城市和天气风险。
+        TravelPlan regenerated = generatePlan(updatedRequest, weather);
+
+        // 7. 复制旧计划，避免直接修改会话中保存的原对象。
+        TravelPlan updatedPlan = copyPlan(currentPlan);
+
+        // 8. 只替换指定时段的活动字段。
+        // 其他时段和天气相关字段均保留旧值。
+        switch (normalizedPeriod) {
+            case "morning":
+                updatedPlan.setMorningActivity(
+                        regenerated.getMorningActivity());
+                break;
+            case "afternoon":
+                updatedPlan.setAfternoonActivity(
+                        regenerated.getAfternoonActivity());
+                break;
+            case "evening":
+                updatedPlan.setEveningActivity(
+                        regenerated.getEveningActivity());
+                break;
+            default:
+                // 前面已经校验过，此处作为防御性检查。
+                throw new IllegalArgumentException("不支持的修改时段");
+        }
+
+        return updatedPlan;
+    }
+
+    /**
+     * 复制现有计划的所有字段。
+     *
+     * 用于保证局部修改返回新对象，并保留未修改的业务数据。
+     */
+    private TravelPlan copyPlan(TravelPlan source) {
+        TravelPlan target = new TravelPlan();
+
+        target.setCity(source.getCity());
+        target.setDate(source.getDate());
+        target.setWeatherSummary(source.getWeatherSummary());
+        target.setMorningActivity(source.getMorningActivity());
+        target.setAfternoonActivity(source.getAfternoonActivity());
+        target.setEveningActivity(source.getEveningActivity());
+        target.setClothingAdvice(source.getClothingAdvice());
+
+        // 复制集合，避免新旧计划共用同一个可变集合。
+        target.setItemsToPack(source.getItemsToPack() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(source.getItemsToPack()));
+
+        target.setWarnings(source.getWarnings() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(source.getWarnings()));
+
+        return target;
+    }
+
     /**
      * 检查必填请求参数。
      * 更完整的表单校验也可以由 Controller 或 Bean Validation 完成；

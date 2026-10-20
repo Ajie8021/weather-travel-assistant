@@ -351,24 +351,32 @@ public class AgentService {
             session.lastWeather(weather);
         }
         if (weather == null) throw new IllegalArgumentException("当前会话缺少可验证的天气数据，请先重新生成计划");
+
         String period = requiredString(args.get("period"), "请指定要修改的时段");
-        String preference = requiredString(args.get("activityPreference"), "请指定修改偏好").toUpperCase(java.util.Locale.ROOT);
-        if (!List.of("OUTDOOR", "INDOOR", "FOOD").contains(preference)) {
-            throw new IllegalArgumentException("修改偏好需为 OUTDOOR、INDOOR 或 FOOD");
-        }
+        String preference = requiredString(
+                args.get("activityPreference"), "请指定修改偏好")
+                .toUpperCase(java.util.Locale.ROOT);
+
+        // 检查当前会话是否保留了原始计划条件。
         TravelRequest original = session.lastRequest();
-        if (original == null) throw new IllegalArgumentException("当前会话缺少计划条件，请先重新生成计划");
-        TravelRequest updatedRequest = new TravelRequest(plan.getCity(), LocalDate.parse(plan.getDate()), preference);
-        TravelPlan regenerated = planService.generatePlan(updatedRequest, weather);
-        String activity;
-        switch (period.toLowerCase()) {
-            case "morning" -> { activity = regenerated.getMorningActivity(); plan.setMorningActivity(activity); }
-            case "afternoon" -> { activity = regenerated.getAfternoonActivity(); plan.setAfternoonActivity(activity); }
-            case "evening" -> { activity = regenerated.getEveningActivity(); plan.setEveningActivity(activity); }
-            default -> throw new IllegalArgumentException("时段需为 morning、afternoon 或 evening");
+        if (original == null) {
+            throw new IllegalArgumentException(
+                    "当前会话缺少计划条件，请先重新生成计划");
         }
-        session.lastPlan(plan);
-        return Map.of("travelPlan", plan, "updatedPeriod", period);
+
+        // 委托 B 的业务服务完成局部修改。
+        // AgentService 不再自行生成新计划、复制时段字段。
+        TravelPlan updatedPlan = planService.modifyPlanForPeriod(
+                plan, weather, period, preference);
+
+        // 只有业务方法成功返回后，才更新会话中的计划。
+        // 失败时不覆盖已有计划。
+        session.lastPlan(updatedPlan);
+
+        return Map.of(
+                "travelPlan", updatedPlan,
+                "updatedPeriod", period
+        );
     }
 
     private CityData confirmedLocation(Map<String, Object> args, Session session) {
