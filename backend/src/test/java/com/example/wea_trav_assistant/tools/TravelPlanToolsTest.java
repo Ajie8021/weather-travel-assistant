@@ -9,7 +9,11 @@ import com.example.wea_trav_assistant.service.TravelRuleService;
 import com.example.wea_trav_assistant.service.WeatherDataProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -133,5 +137,53 @@ class TravelPlanToolsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> travelPlanTools.generateTravelPlan(
                         "广州", "2026-10-20", "SHOPPING"));
+    }
+
+    @Test
+    void shouldExposeTravelPlanAsMcpTool() throws Exception {
+        // 获取待注册的工具方法，检查 MCP 元数据是否正确。
+        Method method = TravelPlanTools.class.getMethod(
+                "generateTravelPlan",
+                String.class,
+                String.class,
+                String.class
+        );
+
+        // 验证工具方法已添加 MCP 注解。
+        McpTool tool = method.getAnnotation(McpTool.class);
+        assertNotNull(tool, "出行计划方法必须注册为 MCP 工具");
+
+        // 验证工具名称与团队约定一致。
+        assertEquals("generate_travel_plan", tool.name());
+
+        // 验证工具描述不是空值，方便 Agent 理解调用场景。
+        assertFalse(tool.description().isBlank());
+
+        // TravelPlan 是自定义 DTO，要求生成输出 schema。
+        assertTrue(tool.generateOutputSchema());
+
+        // 检查三个参数均具有明确的 MCP 参数描述。
+        Parameter[] parameters = method.getParameters();
+        assertEquals(3, parameters.length);
+
+        for (Parameter parameter : parameters) {
+            McpToolParam param =
+                    parameter.getAnnotation(McpToolParam.class);
+
+            assertNotNull(
+                    param,
+                    "每个工具参数都应有 MCP 参数说明：" + parameter.getName()
+            );
+
+            assertFalse(
+                    param.description().isBlank(),
+                    "参数描述不能为空"
+            );
+
+            assertTrue(
+                    param.required(),
+                    "城市、日期和活动偏好均为必填参数"
+            );
+        }
     }
 }

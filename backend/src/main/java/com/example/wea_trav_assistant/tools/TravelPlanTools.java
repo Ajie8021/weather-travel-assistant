@@ -7,6 +7,8 @@ import com.example.wea_trav_assistant.dto.WeatherData;
 import com.example.wea_trav_assistant.service.TravelPlanService;
 import com.example.wea_trav_assistant.service.WeatherDataProvider;
 import org.springframework.stereotype.Component;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -42,18 +44,43 @@ public class TravelPlanTools {
     }
 
     /**
-     * 生成指定城市、指定日期的单日出行计划。
+     * MCP 工具：生成单日出行计划。
      *
-     * @param city 目的地城市，必填
-     * @param date 出行日期，格式为 YYYY-MM-DD，必填
-     * @param activityPreference 活动偏好：
-     *                           OUTDOOR、INDOOR 或 FOOD
-     * @return 包含天气概况、活动建议、穿衣建议等信息的计划
-     * @throws IllegalArgumentException 输入参数不合法时抛出
+     * MCP 工具名为 generate_travel_plan。
+     * Agent 可以根据用户的城市、日期和活动偏好调用本方法。
+     *
+     * 方法内部仍然复用 WeatherDataProvider 和 TravelPlanService，
+     * 不在 MCP 工具层重复实现天气查询、风险判断或活动推荐。
+     *
+     * @param city 目的地城市，例如广州
+     * @param date 出行日期，格式为 YYYY-MM-DD
+     * @param activityPreference 活动偏好，只允许 OUTDOOR、INDOOR、FOOD
+     * @return 包含天气概况、活动建议、穿衣建议、携带物品和注意事项的计划
      */
+    @McpTool(
+            name = "generate_travel_plan",
+            description = "根据目的地城市、出行日期和活动偏好，查询对应天气并生成单日出行计划。"
+                    + "活动偏好可选 OUTDOOR（户外）、INDOOR（室内）或 FOOD（美食）。"
+                    + "计划包含天气概况、上午/下午/晚间活动、穿衣建议、携带物品和注意事项。",
+            generateOutputSchema = true
+    )
     public TravelPlan generateTravelPlan(
+            @McpToolParam(
+                    description = "目的地城市名称，例如广州、深圳",
+                    required = true
+            )
             String city,
+
+            @McpToolParam(
+                    description = "出行日期，格式为 YYYY-MM-DD，表示目的地当地日期",
+                    required = true
+            )
             String date,
+
+            @McpToolParam(
+                    description = "活动偏好：OUTDOOR 表示户外，INDOOR 表示室内，FOOD 表示美食",
+                    required = true
+            )
             String activityPreference) {
 
         // 1. 校验城市，避免空城市进入天气查询流程。
