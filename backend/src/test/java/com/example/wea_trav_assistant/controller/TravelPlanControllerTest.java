@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -101,5 +102,34 @@ class TravelPlanControllerTest {
 
         // 参数校验失败时，不应查询天气或生成计划。
         verifyNoInteractions(weatherService, travelPlanService);
+    }
+
+    @Test
+    void weatherApiFailureShouldReturnPlanPageWithServiceUnavailable()
+            throws Exception {
+
+        // 模拟天气服务连接超时，避免测试依赖真实网络。
+        when(weatherService.getWeather(
+                eq("广州"), eq(LocalDate.of(2026, 10, 20))))
+                .thenThrow(new ResourceAccessException("模拟连接超时"));
+
+        mockMvc.perform(post("/plan/generate")
+                        .param("city", "广州")
+                        .param("date", "2026-10-20")
+                        .param("activityPreference", "OUTDOOR"))
+                // 天气 API 不可用时，应返回 503。
+                .andExpect(status().isServiceUnavailable())
+                // 必须返回计划页面，而不是天气查询页面。
+                .andExpect(view().name("plan"))
+                // 页面应显示可理解的错误信息。
+                .andExpect(model().attributeExists("errorMessage"))
+                // 保留表单输入，方便用户稍后重试。
+                .andExpect(model().attribute("city", "广州"))
+                .andExpect(model().attribute("date", "2026-10-20"))
+                .andExpect(model().attribute(
+                        "activityPreference", "OUTDOOR"));
+
+        // 天气查询失败时，计划生成服务不应被调用。
+        verifyNoInteractions(travelPlanService);
     }
 }
