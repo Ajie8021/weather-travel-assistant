@@ -27,6 +27,13 @@ class WeatherServiceTest {
         when(client.searchCities("NoSuchCity")).thenReturn(List.of());
         assertThrows(WeatherException.class, () -> service.getWeather("NoSuchCity", LocalDate.now().plusDays(1)));
     }
+    @Test void rejectsAmbiguousCityInsteadOfChoosingTheFirstCandidate() {
+        CityData anotherBeijing = new CityData("Beijing", "Hebei", "China", 40.0, 116.5, "Asia/Shanghai");
+        when(client.searchCities("Beijing")).thenReturn(List.of(beijing, anotherBeijing));
+
+        assertThrows(WeatherException.class, () -> service.getWeather("Beijing", LocalDate.now().plusDays(1)));
+        verify(client, never()).getForecast(any(), any());
+    }
     @Test void mapsForecast() throws Exception {
         LocalDate date = LocalDate.now().plusDays(1);
         when(client.searchCities("Beijing")).thenReturn(List.of(beijing));
@@ -37,5 +44,21 @@ class WeatherServiceTest {
         assertEquals(3, data.weatherCode());
         assertEquals(20.5, data.maxTemp());
         assertEquals(10, data.precipitationProbability());
+    }
+    @Test void preservesMissingOptionalWeatherFieldsAsNull() throws Exception {
+        LocalDate date = LocalDate.now().plusDays(1);
+        when(client.searchCities("Beijing")).thenReturn(List.of(beijing));
+        when(client.getForecast(any(), any())).thenReturn(new ObjectMapper().readTree("""
+                {"daily":{"time":["%s"]}}
+                """.formatted(date)));
+
+        WeatherData data = service.getWeather("Beijing", date);
+
+        assertNull(data.weatherCode());
+        assertNull(data.maxTemp());
+        assertNull(data.minTemp());
+        assertNull(data.precipitationProbability());
+        assertNull(data.precipitation());
+        assertNull(data.windSpeed());
     }
 }
