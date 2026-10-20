@@ -34,7 +34,6 @@ class WeatherServiceTest {
         assertThrows(WeatherException.class, () -> service.getWeather("Beijing", LocalDate.now().plusDays(1)));
         verify(client, never()).getForecast(any(), any());
     }
-    @Test void mapsForecast() throws Exception {
 
     @Test
     void mapsForecast() throws Exception {
@@ -70,20 +69,29 @@ class WeatherServiceTest {
         assertEquals(20.5, data.getMaxTemp());
         assertEquals(10, data.getPrecipitationProbability());
     }
-    @Test void preservesMissingOptionalWeatherFieldsAsNull() throws Exception {
+
+    @Test
+    void preservesMissingOptionalWeatherFieldsAsNull() throws Exception {
         LocalDate date = LocalDate.now().plusDays(1);
+
+        // 模拟城市搜索成功
         when(client.searchCities("Beijing")).thenReturn(List.of(beijing));
-        when(client.getForecast(any(), any())).thenReturn(new ObjectMapper().readTree("""
-                {"daily":{"time":["%s"]}}
-                """.formatted(date)));
+
+        // 模拟天气接口只返回日期，不返回可选天气字段
+        when(client.getForecast(any(), any())).thenReturn(
+                new ObjectMapper().readTree("""
+                    {"daily":{"time":["%s"]}}
+                    """.formatted(date))
+        );
 
         WeatherData data = service.getWeather("Beijing", date);
 
-        assertNull(data.weatherCode());
-        assertNull(data.maxTemp());
-        assertNull(data.minTemp());
-        assertNull(data.precipitationProbability());
-        assertNull(data.precipitation());
-        assertNull(data.windSpeed());
+        // 未返回的可选字段应保持 null，而不是被错误地赋予默认值
+        assertNull(data.getWeatherCode());
+        assertNull(data.getMaxTemp());
+        assertNull(data.getMinTemp());
+        assertNull(data.getPrecipitationProbability());
+        assertNull(data.getPrecipitation());
+        assertNull(data.getWindSpeed());
     }
 }
