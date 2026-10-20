@@ -1,5 +1,24 @@
 # 后端模块协作约定
 
+## MCP 天气工具使用说明
+
+天气模块以 Streamable MCP 的无状态 HTTP 服务对 Agent 暴露两个只读工具。启动后，MCP 端点默认为 `POST /mcp`；仅限本地开发环境使用，部署到网络环境前必须由团队补充访问控制。
+
+| 工具 | 入参 | 返回 | 调用约束 |
+| --- | --- | --- | --- |
+| `search_city` | `city: string` | 候选 `CityData` 列表 | 有多个候选时，Agent 必须向用户确认，不能自行选择。 |
+| `get_weather` | 已确认的 `CityData`、`date: YYYY-MM-DD` | 标准化 `WeatherData` | 日期须在 Open-Meteo 的可查询范围内；缺失天气字段保留为 `null`。 |
+
+本地验证命令：
+
+```powershell
+cd backend
+.\mvnw.cmd clean test
+.\mvnw.cmd spring-boot:run
+```
+
+`WeatherToolsTest` 使用 Mockito 验证工具包装层的候选城市返回、已确认地点查询和日期格式校验。`WeatherServiceTest` 覆盖天气服务的数据转换和核心输入边界。
+
 -   文档版本：1.0
 -   适用范围：Java + Spring Boot + Thymeleaf 第一版
 -   关联文档：`需求文档.docx`、`travel-assistant.yaml`
