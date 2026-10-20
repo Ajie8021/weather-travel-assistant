@@ -1,12 +1,10 @@
 openapi: 3.0.3
 info:
   title: 天气查询与智能出行规划助手 API 契约
-  version: 1.1.0
+  version: 2.0.0
   description: |
-    本契约是三人小组进行前后端联调、DTO 设计和测试的共同依据。
-    第一版采用 Spring Boot + Thymeleaf 服务端渲染，不要求独立 REST/JSON 前端。
-    成功请求返回 HTML 页面；页面表单错误也通过重新渲染页面展示，不直接向普通浏览器用户输出 JSON。
-    ErrorResponse 用于统一记录错误语义，并可供日志、测试或未来 JSON 接口复用。
+    V2 保留 V1 的 Thymeleaf 天气和计划页面契约，并增加聊天 Agent JSON API。
+    聊天 API 用于自然语言交互和结构化天气/计划结果；旧页面响应语义不变。
 servers:
   - url: http://localhost:8080
     description: 本地开发环境；部署时按实际地址修改
@@ -16,6 +14,8 @@ tags:
     description: 城市天气查询与页面展示
   - name: TravelPlan
     description: 单日出行计划生成
+  - name: Chat
+    description: 自然语言 Agent 对话与工具调用结果
 
 paths:
   /weather:
@@ -116,8 +116,114 @@ paths:
                 type: string
                 description: 包含天气服务异常提示的 HTML 页面。
 
+  /chat:
+    get:
+      tags:
+        - Chat
+      operationId: showAgentChatPage
+      summary: 展示天气与出行 Agent 聊天页面
+      responses:
+        "200":
+          description: 返回聊天页面 HTML。
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/chat:
+    post:
+      tags:
+        - Chat
+      operationId: sendAgentChatMessage
+      summary: 向天气与出行 Agent 发送一条自然语言消息
+      description: |
+        Agent 解析用户意图，并在需要时调用天气或规划工具。sessionId 用于隔离短期会话上下文；
+        新会话可省略该字段，服务端会返回新生成的标识。toolCalls 只记录后端真实执行的调用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            example:
+              sessionId: 4e603bf1-2c2d-4a3b-9920-95e8e865ba40
+              message: 帮我安排明天广州一日游，偏好美食
+      responses:
+        "200":
+          description: Agent 回复。需要城市确认或工具失败时，status 会说明当前状态。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+        "400":
+          description: 消息为空、过长或 JSON 格式无效。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      additionalProperties: false
+      properties:
+        sessionId:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: 可选会话标识；不提供时由服务端生成。
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 用户的自然语言消息。
+          example: 帮我安排明天广州一日游，偏好美食
+
+    ChatResponse:
+      type: object
+      required:
+        - sessionId
+        - reply
+        - status
+        - toolCalls
+      properties:
+        sessionId:
+          type: string
+          description: 本轮对话使用的会话标识。
+        reply:
+          type: string
+          description: Agent 面向用户的中文回复。
+        status:
+          type: string
+          enum: [COMPLETED, NEEDS_INPUT, FAILED]
+        toolCalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCallRecord"
+        weather:
+          allOf:
+            - $ref: "#/components/schemas/WeatherData"
+          nullable: true
+        travelPlan:
+          allOf:
+            - $ref: "#/components/schemas/TravelPlan"
+          nullable: true
+
+    ToolCallRecord:
+      type: object
+      required: [name, status, detail]
+      properties:
+        name:
+          type: string
+          description: 实际调用的工具名称。
+        status:
+          type: string
+          enum: [SUCCESS, FAILED]
+        detail:
+          type: string
     # ------------------------------------------------------------------
     # 1. 用户提交的出行请求
     # 与 Java DTO：TravelRequest 对应。
