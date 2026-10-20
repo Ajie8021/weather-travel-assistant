@@ -232,6 +232,26 @@ class TravelPlanServiceTest {
 
         assertFalse(plan.getWarnings().isEmpty());
         assertFalse(plan.getItemsToPack().isEmpty());
+
+        // 高温风险应反映在穿衣建议中。
+        assertTrue(plan.getClothingAdvice().contains("轻薄透气"));
+
+        // 低温风险应反映在穿衣建议中。
+        assertTrue(plan.getClothingAdvice().contains("保暖"));
+
+        // 大风风险应反映在穿衣建议中。
+        assertTrue(plan.getClothingAdvice().contains("防风"));
+
+        // 高温对应的物品应包含饮用水和防晒用品。
+        assertTrue(plan.getItemsToPack().contains("饮用水"));
+        assertTrue(plan.getItemsToPack().contains("防晒用品"));
+
+        // 严重天气应有相应提醒。
+        assertTrue(plan.getWarnings().stream()
+                .anyMatch(warning ->
+                        warning.contains("雷暴")
+                                || warning.contains("严重天气")
+                                || warning.contains("户外")));
     }
 
     @Test
@@ -251,5 +271,68 @@ class TravelPlanServiceTest {
 
         assertTrue(plan.getEveningActivity().contains("室内"));
         assertTrue(plan.getEveningActivity().contains("美食"));
+    }
+
+    @Test
+    void nullRequestShouldBeRejected() {
+        // 请求对象整体为空时，应立即拒绝。
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> travelPlanService.generatePlan(
+                        null, createClearWeather()));
+    }
+
+    @Test
+    void blankCityShouldBeRejected() {
+        // 目的地城市为空字符串或纯空格时，应拒绝生成计划。
+        TravelRequest request = createRequest("OUTDOOR");
+        request.setCity("   ");
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> travelPlanService.generatePlan(
+                        request, createClearWeather()));
+    }
+
+    @Test
+    void nullRequestDateShouldBeRejected() {
+        // 用户没有指定出行日期时，不能生成日期不明确的计划。
+        TravelRequest request = createRequest("OUTDOOR");
+        request.setDate(null);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> travelPlanService.generatePlan(
+                        request, createClearWeather()));
+    }
+
+    @Test
+    void missingTemperaturesShouldNotBeReportedAsZero() {
+        // 天气代码仍然有效，但最高和最低气温均缺失。
+        WeatherData weather = createClearWeather();
+        weather.setMaxTemp(null);
+        weather.setMinTemp(null);
+
+        TravelPlan plan = travelPlanService.generatePlan(
+                createRequest("INDOOR"), weather);
+
+        // 天气摘要应明确说明温度数据缺失，不能将缺失值显示为 0℃。
+        assertTrue(
+                plan.getWeatherSummary().contains("最高和最低气温数据不足"),
+                "缺失最高、最低气温时，天气摘要应明确提示温度数据不足"
+        );
+
+        // 缺失温度不能被错误地格式化为 0℃。
+        assertFalse(
+                plan.getWeatherSummary().contains("最高气温 0℃")
+                        || plan.getWeatherSummary().contains("最低气温 0℃"),
+                "缺失的最高或最低气温不应被显示为 0℃"
+        );
+
+        // 缺失数据必须传递给最终计划的注意事项。
+        assertTrue(plan.getWarnings().stream()
+                .anyMatch(warning ->
+                        warning.contains("最高温")
+                                || warning.contains("最低温")));
     }
 }
