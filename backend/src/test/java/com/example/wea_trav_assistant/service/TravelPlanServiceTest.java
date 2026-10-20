@@ -58,6 +58,25 @@ class TravelPlanServiceTest {
         return request;
     }
 
+    /**
+     * 判断警告列表中是否至少有一条包含指定关键词。
+     *
+     * 使用多个关键词，是为了避免测试过度依赖某一句固定的提示文案。
+     */
+    private boolean hasWarningContainingAny(TravelPlan plan, String... keywords) {
+        return plan.getWarnings() != null
+                && plan.getWarnings().stream()
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(warning -> {
+                    for (String keyword : keywords) {
+                        if (warning.contains(keyword)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+    }
+
     @Test
     void outdoorPreferenceShouldRecommendOutdoorActivitiesWhenWeatherIsClear() {
         // 晴朗且没有已识别风险时，户外偏好应得到通用户外活动建议。
@@ -66,6 +85,10 @@ class TravelPlanServiceTest {
 
         assertTrue(plan.getMorningActivity().contains("户外"));
         assertTrue(plan.getAfternoonActivity().contains("户外"));
+        assertTrue(
+                plan.getEveningActivity().contains("户外"),
+                "天气适宜且用户偏好户外时，晚间安排也应体现户外偏好"
+        );
         assertNotNull(plan.getEveningActivity());
     }
 
@@ -102,6 +125,10 @@ class TravelPlanServiceTest {
 
         assertTrue(plan.getMorningActivity().contains("室内"));
         assertTrue(plan.getAfternoonActivity().contains("室内"));
+        assertTrue(
+                plan.getEveningActivity().contains("室内"),
+                "雷暴天气下，晚间安排也应避免不安全的户外活动"
+        );
         assertFalse(plan.getWarnings().isEmpty());
     }
 
@@ -171,6 +198,28 @@ class TravelPlanServiceTest {
     }
 
     @Test
+    void planListsShouldNotContainNullOrBlankItems() {
+        // 列表应可以直接用于 API 返回或前端卡片展示。
+        TravelPlan plan = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), createClearWeather());
+
+        assertNotNull(plan.getItemsToPack());
+        assertNotNull(plan.getWarnings());
+
+        assertTrue(
+                plan.getItemsToPack().stream()
+                        .allMatch(item -> item != null && !item.isBlank()),
+                "携带物品列表不能包含 null 或空白项"
+        );
+
+        assertTrue(
+                plan.getWarnings().stream()
+                        .allMatch(warning -> warning != null && !warning.isBlank()),
+                "警告列表不能包含 null 或空白项"
+        );
+    }
+
+    @Test
     void mismatchedWeatherDateShouldBeRejected() {
         // 不得使用其他日期的天气生成计划。
         WeatherData weather = createClearWeather();
@@ -183,6 +232,19 @@ class TravelPlanServiceTest {
 
         assertEquals("WEATHER_DATA_INCOMPLETE",
                 exception.getErrorCode());
+    }
+
+    @Test
+    void mismatchedWeatherCityShouldBeRejected() {
+        // 请求目的地为广州，但天气数据来自深圳，不能混用。
+        WeatherData weather = createClearWeather();
+        weather.setCity("深圳");
+
+        assertThrows(
+                WeatherDataIncompleteException.class,
+                () -> travelPlanService.generatePlan(
+                        createRequest("OUTDOOR"), weather)
+        );
     }
 
     @Test
@@ -208,6 +270,11 @@ class TravelPlanServiceTest {
         assertTrue(plan.getMorningActivity().contains("室内"));
         assertTrue(plan.getAfternoonActivity().contains("室内"));
         assertTrue(plan.getEveningActivity().contains("室内"));
+        // 未知天气代码应明确告知用户，不能只在摘要中标记未知。
+        assertTrue(
+                hasWarningContainingAny(plan, "未知", "无法判断", "核实"),
+                "未知天气代码应在警告中得到体现"
+        );
 
         assertFalse(plan.getWarnings().isEmpty());
     }
@@ -246,6 +313,29 @@ class TravelPlanServiceTest {
         assertTrue(plan.getItemsToPack().contains("饮用水"));
         assertTrue(plan.getItemsToPack().contains("防晒用品"));
 
+        // 每一种风险都应有对应提示，不能只保留一条笼统警告。
+        assertTrue(
+                hasWarningContainingAny(plan, "雷暴", "严重天气"),
+                "雷暴风险应有明确提示"
+        );
+        assertTrue(
+                hasWarningContainingAny(plan, "高温", "防暑"),
+                "高温风险应有明确提示"
+        );
+        assertTrue(
+                hasWarningContainingAny(plan, "低温", "保暖"),
+                "低温风险应有明确提示"
+        );
+        // 当前规则服务使用“风力较大”描述大风风险。
+        assertTrue(
+                hasWarningContainingAny(plan, "大风", "防风", "风力较大"),
+                "大风风险应有明确提示"
+        );
+        assertTrue(
+                hasWarningContainingAny(plan, "降雨", "降水", "雨具", "雨伞"),
+                "降雨风险应有明确提示"
+        );
+
         // 严重天气应有相应提醒。
         assertTrue(plan.getWarnings().stream()
                 .anyMatch(warning ->
@@ -280,6 +370,22 @@ class TravelPlanServiceTest {
                 IllegalArgumentException.class,
                 () -> travelPlanService.generatePlan(
                         null, createClearWeather()));
+    }
+
+    @Test
+    void nullWeatherDataShouldBeRejected() {
+        // 空天气数据由规则服务识别为天气数据不完整。
+        WeatherDataIncompleteException exception = assertThrows(
+                WeatherDataIncompleteException.class,
+                () -> travelPlanService.generatePlan(
+                        createRequest("OUTDOOR"), null)
+        );
+
+        // 验证业务异常代码，避免只检查异常类型。
+        assertEquals(
+                "WEATHER_DATA_INCOMPLETE",
+                exception.getErrorCode()
+        );
     }
 
     @Test
