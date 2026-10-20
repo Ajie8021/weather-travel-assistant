@@ -62,6 +62,14 @@ public class TravelPlanService {
             city = request.getCity().trim();
         }
 
+        // 请求城市与天气数据城市必须一致，避免使用其他城市的天气生成计划。
+        if (city != null
+                && !request.getCity().trim().equalsIgnoreCase(city.trim())) {
+            throw new WeatherDataIncompleteException(
+                    "请求城市与天气数据城市不一致，无法生成出行计划"
+            );
+        }
+
         plan.setCity(city);
         plan.setDate(request.getDate().format(
                 DateTimeFormatter.ISO_LOCAL_DATE));
