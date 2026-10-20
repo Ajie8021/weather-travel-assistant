@@ -441,4 +441,97 @@ class TravelPlanServiceTest {
                         warning.contains("最高温")
                                 || warning.contains("最低温")));
     }
+
+    @Test
+    void modifyingMorningShouldKeepOtherPeriodsUnchanged() {
+        // 先生成一份户外偏好的原始计划。
+        WeatherData weather = createClearWeather();
+        TravelPlan original = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), weather);
+
+        // 保存旧字段，用于验证修改时没有误覆盖其他数据。
+        String oldAfternoon = original.getAfternoonActivity();
+        String oldEvening = original.getEveningActivity();
+        String oldWeatherSummary = original.getWeatherSummary();
+        String oldClothingAdvice = original.getClothingAdvice();
+
+        // 将上午改为室内偏好，其他条件保持不变。
+        TravelPlan updated = travelPlanService.modifyPlanForPeriod(
+                original, weather, "morning", "INDOOR");
+
+        // 应返回新对象，而不是直接修改原计划。
+        assertNotSame(original, updated);
+
+        // 只有上午活动被更新。
+        assertTrue(updated.getMorningActivity().contains("室内"));
+        assertEquals(oldAfternoon, updated.getAfternoonActivity());
+        assertEquals(oldEvening, updated.getEveningActivity());
+
+        // 天气概况和穿衣建议属于天气相关字段，不应因局部修改而变化。
+        assertEquals(oldWeatherSummary, updated.getWeatherSummary());
+        assertEquals(oldClothingAdvice, updated.getClothingAdvice());
+
+        // 原计划仍保持原样，防止修改过程污染会话中的旧对象。
+        assertEquals("OUTDOOR", "OUTDOOR");
+        assertEquals(oldAfternoon, original.getAfternoonActivity());
+        assertEquals(oldEvening, original.getEveningActivity());
+    }
+
+    @Test
+    void modifyingOnePeriodShouldKeepOtherPlanFieldsUnchanged() {
+        // 验证局部修改不会覆盖日期、城市、物品清单和警告。
+        WeatherData weather = createClearWeather();
+        TravelPlan original = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), weather);
+
+        TravelPlan updated = travelPlanService.modifyPlanForPeriod(
+                original, weather, "afternoon", "FOOD");
+
+        assertEquals(original.getCity(), updated.getCity());
+        assertEquals(original.getDate(), updated.getDate());
+        assertEquals(original.getWeatherSummary(), updated.getWeatherSummary());
+        assertEquals(original.getMorningActivity(), updated.getMorningActivity());
+        assertEquals(original.getEveningActivity(), updated.getEveningActivity());
+        assertEquals(original.getClothingAdvice(), updated.getClothingAdvice());
+        assertEquals(original.getItemsToPack(), updated.getItemsToPack());
+        assertEquals(original.getWarnings(), updated.getWarnings());
+
+        // 下午的新建议应符合美食偏好。
+        assertTrue(updated.getAfternoonActivity().contains("美食"));
+    }
+
+    @Test
+    void invalidPeriodShouldBeRejected() {
+        // 不允许把未定义的时段传入计划修改服务。
+        WeatherData weather = createClearWeather();
+        TravelPlan original = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), weather);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> travelPlanService.modifyPlanForPeriod(
+                        original, weather, "night", "INDOOR"));
+    }
+
+    @Test
+    void modifyingPeriodShouldRejectWeatherForAnotherDate() {
+        // 不能拿其他日期的天气修改当前计划。
+        WeatherData weather = createClearWeather();
+        TravelPlan original = travelPlanService.generatePlan(
+                createRequest("OUTDOOR"), weather);
+
+        WeatherData wrongDateWeather = createClearWeather();
+        wrongDateWeather.setDate(targetDate.plusDays(1));
+
+        assertThrows(WeatherDataIncompleteException.class,
+                () -> travelPlanService.modifyPlanForPeriod(
+                        original, wrongDateWeather, "morning", "INDOOR"));
+    }
+
+    @Test
+    void modifyingPeriodShouldRejectNullPlan() {
+        // 没有旧计划时，不能执行局部修改。
+        assertThrows(IllegalArgumentException.class,
+                () -> travelPlanService.modifyPlanForPeriod(
+                        null, createClearWeather(), "morning", "INDOOR"));
+    }
 }
