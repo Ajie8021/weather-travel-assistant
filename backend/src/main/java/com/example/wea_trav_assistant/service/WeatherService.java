@@ -16,44 +16,63 @@ public class WeatherService {
     public WeatherService(OpenMeteoClient client) { this.client = client; }
 
     public WeatherData getWeather(String city, LocalDate date) {
-        if (city == null || city.isBlank() || date == null) throw new WeatherException(WeatherErrorCode.INVALID_INPUT, "请输入城市和有效日期");
-        LocalDate today = LocalDate.now();
-        if (date.isBefore(today) || date.isAfter(today.plusDays(15))) throw new WeatherException(WeatherErrorCode.OUT_OF_FORECAST_RANGE, "日期不在当前可查询的天气预报范围内");
-        List<CityData> cities = client.searchCities(city.trim());
+        validateDate(date);
+        List<CityData> cities = searchCityCandidates(city);
         if (cities.isEmpty()) throw new WeatherException(WeatherErrorCode.CITY_NOT_FOUND, "未找到匹配的城市，请补充地区后重试");
-        List<CityData> exactNames = cities.stream()
-                .filter(candidate -> candidate.name().equalsIgnoreCase(city.trim()))
-                .toList();
-        if (exactNames.size() != 1) throw new WeatherException(WeatherErrorCode.CITY_AMBIGUOUS, "找到多个同名城市，请补充省份或国家后重试");
-        CityData selected = exactNames.getFirst();
-        JsonNode daily = client.getForecast(selected, date).path("daily");
+        if (cities.size() != 1) throw new WeatherException(WeatherErrorCode.CITY_AMBIGUOUS, "找到多个可能的城市，请补充省份或国家后重试");
+        return getWeather(cities.getFirst(), date);
+    }
+
+    public List<CityData> searchCityCandidates(String city) {
+        if (city == null || city.isBlank()) {
+            throw new WeatherException(WeatherErrorCode.INVALID_INPUT, "请输入城市名称");
+        }
+        return client.searchCities(city.trim());
+    }
+
+    public WeatherData getWeather(CityData confirmedCity, LocalDate date) {
+        if (confirmedCity == null) {
+            throw new WeatherException(WeatherErrorCode.INVALID_INPUT, "请选择已确认的城市");
+        }
+        validateDate(date);
+        JsonNode daily = client.getForecast(confirmedCity, date).path("daily");
         JsonNode returnedDate = first(daily, "time");
         if (returnedDate == null || !date.toString().equals(returnedDate.asText())) throw new WeatherException(WeatherErrorCode.WEATHER_DATA_INCOMPLETE, "天气服务未返回所选日期的数据");
 
         // 创建天气数据对象
         WeatherData weather = new WeatherData();
 
-        // 设置城市信息
-        weather.setCity(selected.name());
-        weather.setAdminArea(selected.adminArea());
-        weather.setCountry(selected.country());
-        weather.setLatitude(selected.latitude());
-        weather.setLongitude(selected.longitude());
+        // 设置已确认的城市信息
+        weather.setCity(confirmedCity.name());
+        weather.setAdminArea(confirmedCity.adminArea());
+        weather.setCountry(confirmedCity.country());
+        weather.setLatitude(confirmedCity.latitude());
+        weather.setLongitude(confirmedCity.longitude());
 
-        // 设置日期与天气信息
+        // 设置查询日期和天气数据
         weather.setDate(date);
         weather.setWeatherCode(optionalInt(daily, "weather_code"));
         weather.setMaxTemp(optionalDouble(daily, "temperature_2m_max"));
         weather.setMinTemp(optionalDouble(daily, "temperature_2m_min"));
         weather.setPrecipitationProbability(
                 optionalInt(daily, "precipitation_probability_max"));
-        weather.setPrecipitation(optionalDouble(daily, "precipitation_sum"));
-        weather.setWindSpeed(optionalDouble(daily, "wind_speed_10m_max"));
+        weather.setPrecipitation(
+                optionalDouble(daily, "precipitation_sum"));
+        weather.setWindSpeed(
+                optionalDouble(daily, "wind_speed_10m_max"));
 
-        // 设置数据来源
+        // 设置天气数据来源
         weather.setSource("Open-Meteo");
 
         return weather;
+    }
+
+    private void validateDate(LocalDate date) {
+        if (date == null) throw new WeatherException(WeatherErrorCode.INVALID_INPUT, "请输入城市和有效日期");
+        LocalDate today = LocalDate.now();
+        if (date.isBefore(today) || date.isAfter(today.plusDays(15))) {
+            throw new WeatherException(WeatherErrorCode.OUT_OF_FORECAST_RANGE, "日期不在当前可查询的天气预报范围内");
+        }
     }
     private JsonNode first(JsonNode daily, String field) { JsonNode a = daily.path(field); return a.isArray() && !a.isEmpty() ? a.get(0) : null; }
     private Double optionalDouble(JsonNode d, String f) { JsonNode v = first(d, f); return v != null && v.isNumber() && Double.isFinite(v.doubleValue()) ? v.doubleValue() : null; }
