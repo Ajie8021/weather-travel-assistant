@@ -17,8 +17,8 @@
 ```powershell
 $env:DASHSCOPE_API_KEY = "你的 DashScope 模型服务密钥"
 # DashScope 的 OpenAI 兼容接口；如团队指定了其他模型，可按需要覆盖模型名。
-$env:DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-$env:DASHSCOPE_MODEL = "qwen-plus"
+$env:DASHSCOPE_BASE_URL = "https://llm-435dp91na852pfx3.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+$env:DASHSCOPE_MODEL = "qwen3.7-plus"
 # A/B 的 MCP Streamable HTTP 服务接入后再配置；留空时使用仓库内本地服务适配器：
 $env:MCP_ENDPOINT = ""
 cd backend
