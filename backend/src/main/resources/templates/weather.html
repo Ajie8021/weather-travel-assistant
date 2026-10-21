@@ -1,20 +1,88 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>天气查询 · 慢游指南</title><link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css"><script defer th:src="@{/js/app.js}" src="/js/app.js"></script></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>天气查询 · 慢游指南</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css">
+  <script defer th:src="@{/js/app.js}" src="/js/app.js"></script>
+</head>
 <body>
-<header class="site-header"><a class="brand" th:href="@{/}" href="/"><span class="brand-mark">W</span><span>慢游指南<small>WEATHER × TRAVEL</small></span></a><a class="back-link" th:href="@{/}" href="/">← 返回首页</a></header>
-<main class="page-main"><div class="page-intro"><p class="eyebrow">WEATHER CHECK</p><h1>出发前的天气，<em>心里有数。</em></h1><p>查看目的地当天的天气，再选一种你喜欢的出行方式。</p></div>
-  <div class="notice" role="alert" th:if="${errorMessage != null}" th:text="${errorMessage}">暂时无法获取天气，请检查目的地和日期后重试。</div>
-  <section class="result-card" th:if="${weather != null}">
-    <div class="result-heading"><div><p class="eyebrow">YOUR DESTINATION</p><h2><span th:text="${weather.city}">广州</span><small th:if="${weather.adminArea != null}" th:text="${weather.adminArea}">广东省</small><small th:if="${weather.country != null}" th:text="${weather.country}">中国</small></h2><p class="date-line" th:text="${weather.date}">2026-10-20</p></div><div class="weather-symbol" aria-hidden="true"><span></span><b></b></div></div>
-    <div class="weather-main"><div><small>当天概况</small><strong data-weather-code th:attr="data-code=${weather.weatherCode}" th:text="${weather.weatherCode != null ? '天气代码 ' + weather.weatherCode : '天气情况待确认'}">多云</strong></div><div class="temps"><div><small>最高</small><strong th:if="${weather.maxTemp != null}"><span th:text="${#numbers.formatDecimal(weather.maxTemp,1,1)}">25.4</span>°</strong><strong th:if="${weather.maxTemp == null}">暂无</strong></div><i></i><div><small>最低</small><strong th:if="${weather.minTemp != null}"><span th:text="${#numbers.formatDecimal(weather.minTemp,1,1)}">18.2</span>°</strong><strong th:if="${weather.minTemp == null}">暂无</strong></div></div></div>
-    <dl class="weather-facts"><div th:if="${weather.precipitationProbability != null}"><dt>降水概率</dt><dd><span th:text="${weather.precipitationProbability}">60</span>%</dd></div><div th:if="${weather.precipitation != null}"><dt>降水量</dt><dd><span th:text="${#numbers.formatDecimal(weather.precipitation,1,1)}">2.4</span> mm</dd></div><div th:if="${weather.windSpeed != null}"><dt>风速</dt><dd><span th:text="${#numbers.formatDecimal(weather.windSpeed,1,1)}">18.0</span> km/h</dd></div><div th:if="${weather.source != null}"><dt>数据来源</dt><dd th:text="${weather.source}">Open-Meteo</dd></div></dl>
-    <p class="data-note" th:if="${weather.weatherCode == null || weather.maxTemp == null || weather.minTemp == null}">部分天气数据暂缺，页面不会用默认值代替。请以出发前最新预报为准。</p>
-    <form class="preference-form" th:action="@{/plan/generate}" action="/plan/generate" method="post"><input type="hidden" name="city" th:value="${weather.city}"><input type="hidden" name="date" th:value="${weather.date}">
-      <div class="section-top"><div><p class="eyebrow">MAKE IT YOURS</p><h3>今天想怎么逛？</h3></div><span class="step-pill">2　选择偏好</span></div>
-      <fieldset class="preferences"><legend class="sr-only">选择活动偏好</legend><label><input type="radio" name="activityPreference" value="OUTDOOR" required><span><b>↗</b><strong>户外游览</strong><small>公园、步行、自然风光</small></span></label><label><input type="radio" name="activityPreference" value="INDOOR" required><span><b class="indoor">⌂</b><strong>室内休闲</strong><small>展馆、书店、轻松放松</small></span></label><label><input type="radio" name="activityPreference" value="FOOD" required><span><b class="food">✳</b><strong>美食体验</strong><small>尝尝当地风味</small></span></label></fieldset><button class="button primary full" type="submit">为我生成单日计划 <b aria-hidden="true">→</b></button>
-    </form>
-  </section>
-  <section class="empty-card" th:if="${weather == null && errorMessage == null}"><b>☁</b><h2>还没有天气结果</h2><p>回到首页，输入目的地和日期，我们就开始查询。</p><a class="button secondary" th:href="@{/}" href="/">返回首页</a></section>
-</main><footer><span>慢一点，也能看见更多。</span><span>天气数据由 Open-Meteo 提供</span></footer>
-</body></html>
+  <header class="site-header">
+    <a class="brand" th:href="@{/}" href="/"><span class="brand-mark" aria-hidden="true">W</span><span>慢游指南<small>WEATHER × TRAVEL</small></span></a>
+    <a class="back-link" th:href="@{/}" href="/">← 返回首页</a>
+  </header>
+  <main class="page-main">
+    <div class="page-intro">
+      <p class="eyebrow">WEATHER CHECK</p>
+      <h1>出发前的天气，<em>心里有数。</em></h1>
+      <p>查看目的地当天的天气，再选一种你喜欢的出行方式。</p>
+    </div>
+
+    <div class="notice" role="alert" aria-live="polite" th:if="${errorMessage != null}" th:text="${errorMessage}">
+      暂时无法获取天气，请检查目的地和日期后重试。
+    </div>
+
+    <section class="result-card" th:if="${weather != null}" aria-labelledby="weather-city">
+      <div class="result-heading">
+        <div>
+          <p class="eyebrow">YOUR DESTINATION</p>
+          <h2 id="weather-city">
+            <span th:text="${weather.city}">广州</span>
+            <small th:if="${weather.adminArea != null}" th:text="${weather.adminArea}">广东省</small>
+            <small th:if="${weather.country != null}" th:text="${weather.country}">中国</small>
+          </h2>
+          <p class="date-line" th:text="${weather.date}">2026-10-20</p>
+        </div>
+        <div class="weather-symbol" aria-hidden="true"><span></span><b></b></div>
+      </div>
+
+      <div class="weather-main">
+        <div>
+          <small>当天概况</small>
+          <strong data-weather-code th:attr="data-code=${weather.weatherCode}"
+                  th:text="${weather.weatherCode != null ? '天气代码 ' + weather.weatherCode : '天气情况待确认'}">多云</strong>
+        </div>
+        <div class="temps" aria-label="气温">
+          <div><small>最高</small><strong th:if="${weather.maxTemp != null}"><span th:text="${#numbers.formatDecimal(weather.maxTemp, 1, 1)}">25.4</span>°</strong><strong th:if="${weather.maxTemp == null}">暂无</strong></div>
+          <i aria-hidden="true"></i>
+          <div><small>最低</small><strong th:if="${weather.minTemp != null}"><span th:text="${#numbers.formatDecimal(weather.minTemp, 1, 1)}">18.2</span>°</strong><strong th:if="${weather.minTemp == null}">暂无</strong></div>
+        </div>
+      </div>
+
+      <dl class="weather-facts">
+        <div th:if="${weather.precipitationProbability != null}"><dt>降水概率</dt><dd><span th:text="${weather.precipitationProbability}">60</span>%</dd></div>
+        <div th:if="${weather.precipitation != null}"><dt>降水量</dt><dd><span th:text="${#numbers.formatDecimal(weather.precipitation, 1, 1)}">2.4</span> mm</dd></div>
+        <div th:if="${weather.windSpeed != null}"><dt>风速</dt><dd><span th:text="${#numbers.formatDecimal(weather.windSpeed, 1, 1)}">18.0</span> km/h</dd></div>
+        <div th:if="${weather.source != null}"><dt>数据来源</dt><dd th:text="${weather.source}">Open-Meteo</dd></div>
+      </dl>
+      <p class="data-note" th:if="${weather.weatherCode == null || weather.maxTemp == null || weather.minTemp == null}">
+        部分天气数据暂缺，页面不会用默认值代替。请以出发前最新预报为准。
+      </p>
+
+      <form class="preference-form" th:action="@{/plan/generate}" action="/plan/generate" method="post">
+        <input type="hidden" name="city" th:value="${weather.city}">
+        <input type="hidden" name="date" th:value="${weather.date}">
+        <div class="section-top">
+          <div><p class="eyebrow">MAKE IT YOURS</p><h3>今天想怎么逛？</h3></div>
+          <span class="step-pill">2　选择偏好</span>
+        </div>
+        <fieldset class="preferences">
+          <legend class="sr-only">选择活动偏好</legend>
+          <label><input type="radio" name="activityPreference" value="OUTDOOR" required><span><b aria-hidden="true">↗</b><strong>户外游览</strong><small>公园、步行、自然风光</small></span></label>
+          <label><input type="radio" name="activityPreference" value="INDOOR" required><span><b class="indoor" aria-hidden="true">⌂</b><strong>室内休闲</strong><small>展馆、书店、轻松放松</small></span></label>
+          <label><input type="radio" name="activityPreference" value="FOOD" required><span><b class="food" aria-hidden="true">✳</b><strong>美食体验</strong><small>尝尝当地风味</small></span></label>
+        </fieldset>
+        <button class="button primary full" type="submit">为我生成单日计划 <b aria-hidden="true">→</b></button>
+      </form>
+    </section>
+
+    <section class="empty-card" th:if="${weather == null and errorMessage == null}">
+      <b aria-hidden="true">☁</b><h2>还没有天气结果</h2>
+      <p>回到首页，输入目的地和日期，我们就开始查询。</p>
+      <a class="button secondary" th:href="@{/}" href="/">返回首页</a>
+    </section>
+  </main>
+  <footer><span>慢一点，也能看见更多。</span><span>天气数据由 Open-Meteo 提供</span></footer>
+</body>
+</html>

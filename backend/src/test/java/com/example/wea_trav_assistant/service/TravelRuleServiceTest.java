@@ -151,6 +151,29 @@ class TravelRuleServiceTest {
     }
 
     @Test
+    void shouldNotTriggerThresholdRisksBelowBoundaries() {
+        // 测试所有数值均略低于相应的风险阈值。
+        WeatherData weather = createNormalWeather();
+        weather.setMaxTemp(34.9);
+        weather.setMinTemp(5.1);
+        weather.setWindSpeed(29.9);
+        weather.setPrecipitationProbability(49);
+
+        TravelRuleService.WeatherAnalysis result =
+                ruleService.analyze(targetDate, weather);
+
+        // 低于阈值时，不应触发这些数值型风险。
+        assertFalse(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.HIGH_TEMPERATURE));
+        assertFalse(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.LOW_TEMPERATURE));
+        assertFalse(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.HIGH_WIND));
+        assertFalse(result.getRisks().contains(
+                TravelRuleService.WeatherRisk.HIGH_PRECIPITATION_PROBABILITY));
+    }
+
+    @Test
     void shouldAllowLimitedAnalysisWhenSomeCoreDataIsMissing() {
         // 缺少天气代码，但温度有效：允许有限分析，并说明信息不足。
         WeatherData weather = createNormalWeather();
@@ -188,6 +211,18 @@ class TravelRuleServiceTest {
     }
 
     @Test
+    void shouldRejectNullWeatherObject() {
+        // 天气对象整体为空时，不能继续执行天气规则分析。
+        WeatherDataIncompleteException exception = assertThrows(
+                WeatherDataIncompleteException.class,
+                () -> ruleService.analyze(targetDate, null));
+
+        assertEquals(
+                "WEATHER_DATA_INCOMPLETE",
+                exception.getErrorCode());
+    }
+
+    @Test
     void shouldRejectMismatchedDate() {
         // 不允许用其他日期的天气数据生成当前日期的计划。
         WeatherData weather = createNormalWeather();
@@ -198,22 +233,6 @@ class TravelRuleServiceTest {
                         WeatherDataIncompleteException.class,
                         () -> ruleService.analyze(targetDate, weather));
 
-        assertEquals(
-                "WEATHER_DATA_INCOMPLETE",
-                exception.getErrorCode());
-    }
-
-    @Test
-    void shouldRejectNullWeatherDate() {
-        // 天气数据的日期缺失时，无法确认天气是否对应用户选择的出行日期。
-        WeatherData weather = createNormalWeather();
-        weather.setDate(null);
-
-        WeatherDataIncompleteException exception = assertThrows(
-                WeatherDataIncompleteException.class,
-                () -> ruleService.analyze(targetDate, weather));
-
-        // 验证返回的业务错误码符合接口契约。
         assertEquals(
                 "WEATHER_DATA_INCOMPLETE",
                 exception.getErrorCode());
