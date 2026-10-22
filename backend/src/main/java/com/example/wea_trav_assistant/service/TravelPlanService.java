@@ -4,8 +4,6 @@ package com.example.wea_trav_assistant.service;
 import com.example.wea_trav_assistant.dto.TravelPlan;
 import com.example.wea_trav_assistant.dto.TravelRequest;
 import com.example.wea_trav_assistant.dto.WeatherData;
-import com.example.wea_trav_assistant.dto.PeriodPlan;
-import com.example.wea_trav_assistant.dto.ItineraryItem;
 import com.example.wea_trav_assistant.exception.WeatherDataIncompleteException;
 import org.springframework.stereotype.Service;
 
@@ -76,9 +74,6 @@ public class TravelPlanService {
         plan.setDate(request.getDate().format(
                 DateTimeFormatter.ISO_LOCAL_DATE));
 
-        // 记录本次计划采用的活动偏好，便于展示和后续局部修改。
-        plan.setActivityPreference(request.getActivityPreference());
-
         // 天气概况必须只描述实际可用的数据。
         plan.setWeatherSummary(buildWeatherSummary(weather, analysis));
 
@@ -95,30 +90,6 @@ public class TravelPlanService {
                 recommendActivity(request.getActivityPreference(),
                         analysis, "晚间"));
 
-        // 将原有三个时段的建议转换为结构化数据。
-        // 保留旧文本字段，兼容已有调用方和测试。
-        plan.setPeriodPlans(buildPeriodPlans(
-                request.getActivityPreference(),
-                analysis,
-                plan.getMorningActivity(),
-                plan.getAfternoonActivity(),
-                plan.getEveningActivity()));
-
-        // 暂无可信 POI、地图和价格数据时，不伪造预算金额。
-        plan.setBudgetCurrency("CNY");
-        plan.setBudgetMin(null);
-        plan.setBudgetMax(null);
-        plan.setBudgetNote(
-                "暂无可靠费用数据。交通、餐饮及门票价格均未核实，"
-                        + "请在确定具体地点后再估算预算。");
-
-        // 根据天气风险提供保守的备选安排。
-        plan.setAlternativePlan(
-                buildAlternativePlan(analysis));
-
-        // 标明天气数据来源状态，以及地点、路线和价格数据的缺口。
-        plan.setDataSources(buildDataSources(weather));
-
         // 穿衣、物品和提醒均由同一份天气分析结果生成，
         // 减少活动安排与风险提醒互相矛盾的情况。
         plan.setClothingAdvice(buildClothingAdvice(weather, analysis));
@@ -128,144 +99,6 @@ public class TravelPlanService {
         return plan;
     }
 
-    /**
-     * 把三个时段的原有活动建议转换为结构化行程。
-     *
-     * 当前阶段没有接入可信 POI/地图服务，因此这里只组织活动建议，
-     * 不生成虚构的景点名称、餐厅名称或路线耗时。
-     */
-    private List<PeriodPlan> buildPeriodPlans(
-            String preference,
-            TravelRuleService.WeatherAnalysis analysis,
-            String morningActivity,
-            String afternoonActivity,
-            String eveningActivity) {
-
-        List<PeriodPlan> plans = new ArrayList<>();
-
-        // 每个时段独立建模，方便后续只替换指定时段。
-        plans.add(buildPeriodPlan(
-                "MORNING", preference, analysis,
-                morningActivity, 120));
-
-        plans.add(buildPeriodPlan(
-                "AFTERNOON", preference, analysis,
-                afternoonActivity, 120));
-
-        plans.add(buildPeriodPlan(
-                "EVENING", preference, analysis,
-                eveningActivity, 90));
-
-        return plans;
-    }
-
-    /**
-     * 创建单个时段。
-     *
-     * durationMinutes 是规划阶段的建议活动时长，不是交通耗时，
-     * 也不代表某个真实地点已确认可停留这么久。
-     */
-    private PeriodPlan buildPeriodPlan(
-            String period,
-            String preference,
-            TravelRuleService.WeatherAnalysis analysis,
-            String activityText,
-            int durationMinutes) {
-
-        PeriodPlan periodPlan = new PeriodPlan(period);
-
-        ItineraryItem item = new ItineraryItem();
-
-        // 暂无可信地点数据，必须明确标记，而不是编造 POI。
-        item.setName("具体活动地点待核实");
-        item.setCategory(resolveActivityCategory(preference, analysis));
-        item.setDurationMinutes(durationMinutes);
-
-        // 不存在真实路线查询结果时，不给出路线耗时或已验证的交通结论。
-        item.setTransportToNext(
-                "暂无路线数据；确定具体地点后再核实交通方式和游览顺序");
-
-        // 原有天气规则产生的建议作为备注保留下来。
-        item.setNotes(activityText
-                + "；当前为活动类型建议，具体地点和营业情况尚未核实。");
-
-        item.setSource("暂无可信 POI 数据源");
-        item.setVerificationStatus("UNAVAILABLE");
-
-        periodPlan.setActivities(List.of(item));
-        return periodPlan;
-    }
-
-    /**
-     * 根据实际推荐内容确定活动类别。
-     *
-     * 恶劣天气或天气信息不完整时，非餐饮偏好优先标记为室内活动。
-     */
-    private String resolveActivityCategory(
-            String preference,
-            TravelRuleService.WeatherAnalysis analysis) {
-
-        if ("FOOD".equals(preference)) {
-            return "餐饮体验";
-        }
-
-        if (analysis.hasSevereWeather()
-                || analysis.getCondition()
-                == TravelRuleService.WeatherCondition.UNKNOWN
-                || requiresIndoorAlternative(analysis)) {
-            return "室内活动";
-        }
-
-        if ("OUTDOOR".equals(preference)) {
-            return "户外活动";
-        }
-
-        return "室内活动";
-    }
-
-    /**
-     * 生成天气变化或恶劣天气下的保守备选方案。
-     * 不涉及未经查询的具体地点或路线。
-     */
-    private String buildAlternativePlan(
-            TravelRuleService.WeatherAnalysis analysis) {
-
-        if (analysis.hasSevereWeather()
-                || requiresIndoorAlternative(analysis)) {
-            return "优先选择交通方便的室内活动，避免不安全的户外安排；"
-                    + "具体场所、营业情况和交通路线需出行前核实。";
-        }
-
-        if (hasTemperatureRisk(analysis)) {
-            return "缩短户外活动时间，增加休息，并按实际气温做好防暑或保暖；"
-                    + "必要时改为室内活动，具体地点待核实。";
-        }
-
-        return "如天气发生变化，可调整为室内活动或缩短户外行程；"
-                + "具体场所及交通路线需进一步核实。";
-    }
-
-    /**
-     * 只记录实际可说明的数据来源。
-     *
-     * 天气来源取自 WeatherData；地点、路线和费用尚未接入可信数据源，
-     * 因此明确写出缺口，避免将其误认为已核实。
-     */
-    private List<String> buildDataSources(WeatherData weather) {
-
-        List<String> sources = new ArrayList<>();
-
-        if (weather.getSource() != null
-                && !weather.getSource().isBlank()) {
-            sources.add("天气数据来源：" + weather.getSource());
-        } else {
-            sources.add("天气数据来源未在 WeatherData 中提供");
-        }
-
-        sources.add("地点、路线和费用：暂无可信 POI/地图数据，尚未核实");
-
-        return sources;
-    }
 
     /**
      * 只修改当前计划中的一个时段。
