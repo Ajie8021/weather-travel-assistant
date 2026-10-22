@@ -38,24 +38,41 @@ class WeatherServiceTest {
 
     @Test
     void prioritizesBeijingMunicipalityOverSameNamedPlacesInOtherProvinces() {
-        CityData beijingMunicipality = new CityData("北京", "北京市", "中国", 39.90, 116.40, "Asia/Shanghai");
-        CityData beijingChongqing = new CityData("北京", "重庆市", "中国", 29.56, 106.55, "Asia/Shanghai");
-        CityData beijingSichuan = new CityData("北京", "四川省", "中国", 30.65, 104.07, "Asia/Shanghai");
-        when(client.searchCities("北京")).thenReturn(List.of(beijingMunicipality, beijingChongqing, beijingSichuan));
+        List<CityData> candidates = service.searchCityCandidates("北京");
 
-        assertEquals(List.of(beijingMunicipality), service.searchCityCandidates("北京"));
+        assertEquals(1, candidates.size());
+        CityData beijing = candidates.getFirst();
+        assertEquals("北京", beijing.name());
+        assertEquals("北京市", beijing.adminArea());
+        assertEquals("中国", beijing.country());
+        assertEquals(39.9042, beijing.latitude());
+        assertEquals(116.4074, beijing.longitude());
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void usesCanonicalDongguanCoordinatesInsteadOfSameNamedPlacesFromGeocoder() {
+        List<CityData> candidates = service.searchCityCandidates("中国广东省东莞市");
+
+        assertEquals(1, candidates.size());
+        CityData dongguan = candidates.getFirst();
+        assertEquals("东莞", dongguan.name());
+        assertEquals("广东省", dongguan.adminArea());
+        assertEquals(23.0207, dongguan.latitude());
+        assertEquals(113.7518, dongguan.longitude());
+        verifyNoInteractions(client);
     }
 
     @Test
     void narrowsSameNameCandidatesWhenProvinceAndCountryAreProvided() {
-        CityData shenzhenGuangdong = new CityData("深圳", "广东省", "中国", 22.54, 114.06, "Asia/Shanghai");
-        CityData shenzhenHubei = new CityData("深圳", "湖北省", "中国", 30.50, 114.30, "Asia/Shanghai");
-        when(client.searchCities("中国广东省深圳市"))
-                .thenReturn(List.of(shenzhenGuangdong, shenzhenHubei));
+        CityData illinois = new CityData("Springfield", "Illinois", "United States", 39.78, -89.64, "America/Chicago");
+        CityData massachusetts = new CityData("Springfield", "Massachusetts", "United States", 42.10, -72.59, "America/New_York");
+        when(client.searchCities("United States Illinois Springfield"))
+                .thenReturn(List.of(illinois, massachusetts));
 
-        List<CityData> candidates = service.searchCityCandidates("中国广东省深圳市");
+        List<CityData> candidates = service.searchCityCandidates("United States Illinois Springfield");
 
-        assertEquals(List.of(shenzhenGuangdong), candidates);
+        assertEquals(List.of(illinois), candidates);
     }
 
     @Test

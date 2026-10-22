@@ -29,6 +29,8 @@ public class WeatherService {
             throw new WeatherException(WeatherErrorCode.INVALID_INPUT, "请输入城市名称");
         }
         String query = city.trim();
+        var knownChineseCity = ChinaCityCatalog.find(query);
+        if (knownChineseCity.isPresent()) return List.of(knownChineseCity.get());
         List<CityData> candidates = client.searchCities(query);
 
         // A query for one of China's four municipalities normally means the
