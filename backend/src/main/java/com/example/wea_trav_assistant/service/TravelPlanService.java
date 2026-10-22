@@ -317,61 +317,172 @@ public class TravelPlanService {
         return summary.toString();
     }
 
+
     /**
-     * 根据偏好和天气风险推荐某一时段的活动。
+     * 根据用户偏好、天气风险和时段推荐活动。
+     *
+     * 先处理天气安全风险，再根据用户偏好和时段生成活动建议。
+     *
+     * @param preference 用户偏好：OUTDOOR、INDOOR、FOOD
+     * @param analysis 天气风险分析结果
+     * @param period 时段，例如“上午”“下午”“晚间”
+     * @return 活动建议
      */
     private String recommendActivity(
             String preference,
             TravelRuleService.WeatherAnalysis analysis,
             String period) {
 
-        // 雷暴、冻雨等严重天气优先级最高，避免推荐户外活动。
+        String time = normalizePeriod(period);
+
+        // 严重天气优先级最高，避免推荐户外活动。
         if (analysis.hasSevereWeather()) {
-            if ("FOOD".equals(preference)) {
-                return "建议选择室内餐厅体验当地美食，避免户外活动";
-            }
-            return period + "：安排室内休闲活动，如室内展览、文化体验或休息；"
-                    + "避免户外游览，并关注天气变化。";
+            return recommendIndoorActivity(
+                    preference, time, "当前存在严重天气风险");
         }
 
-        // 天气分类未知时，不能据此断言户外条件适宜。
+        // 天气类型未知时，优先选择方便调整的室内活动。
         if (analysis.getCondition()
                 == TravelRuleService.WeatherCondition.UNKNOWN) {
-            return period + "：优先选择方便调整的室内活动；"
-                    + "天气情况尚不能完整确认，出行前请再次核实。";
+            return recommendIndoorActivity(
+                    preference, time, "天气情况尚不能完整确认");
         }
 
-        // 可能影响户外安全或舒适度的风险，优先提供室内替代方案。
+        // 存在影响户外安全或舒适度的风险时，优先提供室内方案。
         if (requiresIndoorAlternative(analysis)) {
-            if ("FOOD".equals(preference)) {
-                return period + "：安排室内用餐或美食体验，"
-                        + "尽量选择交通方便、无需长时间户外步行的安排。";
-            }
-
-            return period + "：建议安排室内休闲、文化体验或室内展览；"
-                    + "如需外出，尽量缩短户外停留时间，并根据天气调整。";
+            return recommendIndoorActivity(
+                    preference, time, "当前天气可能影响户外活动");
         }
 
-        // 高温或低温不一定意味着必须取消所有户外活动，
-        // 但需要缩短活动时间、增加休息或加强保暖。
         boolean temperatureRisk = hasTemperatureRisk(analysis);
 
+        // 户外偏好：天气正常时推荐户外活动；温度异常时降低活动强度。
         if ("OUTDOOR".equals(preference)) {
             if (temperatureRisk) {
-                return period + "：可考虑短时、低强度的户外游览，"
-                        + "增加休息，并根据气温做好防暑或保暖。";
+                return switch (time) {
+                    case "MORNING" ->
+                            "上午：安排短时公园漫步或轻松户外步行，"
+                                    + "注意防暑或保暖，避免长时间活动。";
+                    case "AFTERNOON" ->
+                            "下午：安排短时、低强度的户外游览，"
+                                    + "适当休息并根据气温调整活动时长。";
+                    default ->
+                            "晚上：安排适度的户外散步或夜间街区游览，"
+                                    + "注意照明、气温变化和返程安全。";
+                };
             }
-            return period + "：安排轻松的户外步行、城市漫步或公园游览；"
-                    + "具体活动地点由出行者自行选择。";
+
+            return switch (time) {
+                case "MORNING" ->
+                        "上午：安排户外公园漫步或自然景观游览。";
+                case "AFTERNOON" ->
+                        "下午：安排户外探索、城市步行或景观游览。";
+                default ->
+                        "晚上：安排户外散步或夜间街区游览，"
+                                + "注意照明和返程安全。";
+            };
         }
 
+        // 室内偏好：按时段安排不同的室内活动。
         if ("INDOOR".equals(preference)) {
-            return period + "：安排室内休闲、文化体验、室内展览或阅读休息。";
+            return switch (time) {
+                case "MORNING" ->
+                        "上午：安排室内展览、博物馆参观或文化体验。";
+                case "AFTERNOON" ->
+                        "下午：安排室内文化体验、展览参观或休闲活动。";
+                default ->
+                        "晚上：安排室内休闲、文化体验或安静的阅读休息。";
+            };
         }
 
-        // FOOD 偏好只推荐通用餐饮体验，不虚构店名或营业信息。
-        return period + "：安排当地美食体验或室内用餐，"
-                + "具体餐饮地点请自行确认营业时间和交通情况。";
+        // 美食偏好：三个时段均明确体现美食体验。
+        if ("FOOD".equals(preference)) {
+            return switch (time) {
+                case "MORNING" ->
+                        "上午：体验当地早餐、传统早点或特色饮品，"
+                                + "感受当地美食文化。";
+                case "AFTERNOON" ->
+                        "下午：品尝地方特色小吃、午餐或特色美食。";
+                default ->
+                        "晚上：体验当地晚餐或地方特色美食，"
+                                + "出发前确认餐饮地点的营业时间和交通情况。";
+            };
+        }
+
+        // 正常情况下，validateRequest 应已拦截不支持的偏好。
+        // 保留防御性处理，避免未知偏好被误认为美食偏好。
+        throw new IllegalArgumentException(
+                "不支持的活动偏好：" + preference);
+    }
+
+    /**
+     * 天气存在风险时，按时段提供室内替代活动。
+     *
+     * 不论用户原本偏好什么，都优先避免不必要的户外风险。
+     */
+    private String recommendIndoorActivity(
+            String preference,
+            String time,
+            String reason) {
+
+        String activity;
+
+        if ("FOOD".equals(preference)) {
+            activity = switch (time) {
+                case "MORNING" ->
+                        "选择室内早餐或特色饮品，体验当地美食";
+                case "AFTERNOON" ->
+                        "选择室内用餐或地方特色美食体验";
+                default ->
+                        "选择室内餐厅享用晚餐或体验地方美食";
+            };
+        } else {
+            activity = switch (time) {
+                case "MORNING" -> "安排室内展览、文化体验或休息";
+                case "AFTERNOON" -> "安排室内文化体验、展览或休闲活动";
+                default -> "安排室内休闲、文化体验或休息";
+            };
+        }
+
+        return timeLabel(time) + "：" + activity + "；"
+                + reason + "，建议避免户外游览，"
+                + "并在出行前再次确认天气情况。";
+    }
+
+    /**
+     * 将内部时段标识转换为中文。
+     */
+    private String timeLabel(String time) {
+        return switch (time) {
+            case "MORNING" -> "上午";
+            case "AFTERNOON" -> "下午";
+            default -> "晚上";
+        };
+    }
+
+    /**
+     * 统一识别中文或英文时段名称，避免调用方传入不同写法时匹配失败。
+     */
+    private String normalizePeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return "AFTERNOON";
+        }
+
+        String value = period.trim().toLowerCase();
+
+        if (value.contains("morning")
+                || value.contains("早")
+                || value.contains("上午")) {
+            return "MORNING";
+        }
+
+        if (value.contains("afternoon")
+                || value.contains("下午")
+                || value.contains("中午")) {
+            return "AFTERNOON";
+        }
+
+        return "EVENING";
     }
 
     /**

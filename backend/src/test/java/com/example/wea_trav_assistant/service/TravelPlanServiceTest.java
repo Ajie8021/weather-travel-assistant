@@ -83,6 +83,11 @@ class TravelPlanServiceTest {
         TravelPlan plan = travelPlanService.generatePlan(
                 createRequest("OUTDOOR"), createClearWeather());
 
+        // 临时输出三个时段的实际文案，便于定位失败原因。
+        System.out.println("OUTDOOR 上午：" + plan.getMorningActivity());
+        System.out.println("OUTDOOR 下午：" + plan.getAfternoonActivity());
+        System.out.println("OUTDOOR 晚上：" + plan.getEveningActivity());
+
         assertTrue(plan.getMorningActivity().contains("户外"));
         assertTrue(plan.getAfternoonActivity().contains("户外"));
         assertTrue(
@@ -108,6 +113,11 @@ class TravelPlanServiceTest {
         // 美食偏好应输出通用餐饮体验，而不是编造具体店铺。
         TravelPlan plan = travelPlanService.generatePlan(
                 createRequest("FOOD"), createClearWeather());
+
+        // 临时输出三个时段的实际文案，便于定位失败原因。
+        System.out.println("FOOD 上午：" + plan.getMorningActivity());
+        System.out.println("FOOD 下午：" + plan.getAfternoonActivity());
+        System.out.println("FOOD 晚上：" + plan.getEveningActivity());
 
         assertTrue(plan.getMorningActivity().contains("美食"));
         assertTrue(plan.getAfternoonActivity().contains("美食"));
@@ -533,5 +543,172 @@ class TravelPlanServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> travelPlanService.modifyPlanForPeriod(
                         null, createClearWeather(), "morning", "INDOOR"));
+    }
+
+    /**
+     * 测试正常天气下，户外偏好的早、中、晚计划具有差异。
+     *
+     * 该测试通过公开的 generatePlan() 方法验证最终计划，
+     * 而不是直接调用 private 的 recommendActivity()。
+     */
+    @Test
+    void outdoorActivitiesShouldDifferByPeriodInClearWeather() {
+        // Arrange：准备正常天气和户外活动偏好。
+        WeatherData weather = createClearWeather();
+        TravelRequest request = createRequest("OUTDOOR");
+
+        // Act：生成完整的出行计划。
+        TravelPlan plan = travelPlanService.generatePlan(request, weather);
+
+        // Assert：三个时段不应全部推荐相同的活动内容。
+        assertNotEquals(
+                plan.getMorningActivity(),
+                plan.getAfternoonActivity(),
+                "上午和下午的户外活动建议应有所区别"
+        );
+
+        assertNotEquals(
+                plan.getAfternoonActivity(),
+                plan.getEveningActivity(),
+                "下午和晚上的户外活动建议应有所区别"
+        );
+
+        assertNotEquals(
+                plan.getMorningActivity(),
+                plan.getEveningActivity(),
+                "上午和晚上的户外活动建议应有所区别"
+        );
+    }
+
+    /**
+     * 测试室内偏好下，不同时段也能生成差异化安排。
+     */
+    @Test
+    void indoorActivitiesShouldDifferByPeriodInClearWeather() {
+        // Arrange
+        WeatherData weather = createClearWeather();
+        TravelRequest request = createRequest("INDOOR");
+
+        // Act
+        TravelPlan plan = travelPlanService.generatePlan(request, weather);
+
+        // Assert
+        assertNotEquals(
+                plan.getMorningActivity(),
+                plan.getAfternoonActivity(),
+                "上午和下午的室内活动建议应有所区别"
+        );
+
+        assertNotEquals(
+                plan.getAfternoonActivity(),
+                plan.getEveningActivity(),
+                "下午和晚上的室内活动建议应有所区别"
+        );
+
+        // 三个时段都应提供非空的活动建议。
+        assertTrue(
+                plan.getMorningActivity() != null
+                        && !plan.getMorningActivity().isBlank(),
+                "上午活动建议不能为空"
+        );
+
+        assertTrue(
+                plan.getAfternoonActivity() != null
+                        && !plan.getAfternoonActivity().isBlank(),
+                "下午活动建议不能为空"
+        );
+
+        assertTrue(
+                plan.getEveningActivity() != null
+                        && !plan.getEveningActivity().isBlank(),
+                "晚上活动建议不能为空"
+        );
+    }
+
+    /**
+     * 测试美食偏好下，不同时段推荐不同的餐饮体验。
+     */
+    @Test
+    void foodActivitiesShouldDifferByPeriodInClearWeather() {
+        // Arrange
+        WeatherData weather = createClearWeather();
+        TravelRequest request = createRequest("FOOD");
+
+        // Act
+        TravelPlan plan = travelPlanService.generatePlan(request, weather);
+
+        // Assert
+        assertNotEquals(
+                plan.getMorningActivity(),
+                plan.getAfternoonActivity(),
+                "早餐与午餐时段的美食建议应有所区别"
+        );
+
+        assertNotEquals(
+                plan.getAfternoonActivity(),
+                plan.getEveningActivity(),
+                "午餐与晚餐时段的美食建议应有所区别"
+        );
+
+        assertTrue(
+                plan.getMorningActivity().contains("早餐"),
+                "上午的美食建议应体现早餐场景"
+        );
+
+        assertTrue(
+                plan.getAfternoonActivity().contains("午餐"),
+                "下午的美食建议应体现午餐或相应的时段场景"
+        );
+
+        assertTrue(
+                plan.getEveningActivity().contains("晚餐"),
+                "晚上的美食建议应体现晚餐场景"
+        );
+    }
+
+    /**
+     * 测试严重天气下，所有时段都采用室内替代方案。
+     */
+    @Test
+    void severeWeatherShouldAvoidOutdoorActivitiesInEveryPeriod() {
+        // Arrange：在正常天气基础上设置雷暴天气。
+        WeatherData weather = createClearWeather();
+        weather.setWeatherCode(95);
+
+        TravelRequest request = createRequest("OUTDOOR");
+
+        // Act
+        TravelPlan plan = travelPlanService.generatePlan(request, weather);
+
+        // Assert：三个时段均应给出安全提示，不能推荐户外游览。
+        assertTrue(
+                plan.getMorningActivity().contains("室内"),
+                "严重天气下，上午应推荐室内活动"
+        );
+
+        assertTrue(
+                plan.getAfternoonActivity().contains("室内"),
+                "严重天气下，下午应推荐室内活动"
+        );
+
+        assertTrue(
+                plan.getEveningActivity().contains("室内"),
+                "严重天气下，晚上应推荐室内活动"
+        );
+
+        assertTrue(
+                plan.getMorningActivity().contains("避免户外"),
+                "上午应提示避免户外活动"
+        );
+
+        assertTrue(
+                plan.getAfternoonActivity().contains("避免户外"),
+                "下午应提示避免户外活动"
+        );
+
+        assertTrue(
+                plan.getEveningActivity().contains("避免户外"),
+                "晚上应提示避免户外活动"
+        );
     }
 }
