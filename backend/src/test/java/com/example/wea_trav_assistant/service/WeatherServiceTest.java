@@ -28,11 +28,22 @@ class WeatherServiceTest {
         assertThrows(WeatherException.class, () -> service.getWeather("NoSuchCity", LocalDate.now().plusDays(1)));
     }
     @Test void rejectsAmbiguousCityInsteadOfChoosingTheFirstCandidate() {
-        CityData anotherBeijing = new CityData("Beijing", "Hebei", "China", 40.0, 116.5, "Asia/Shanghai");
-        when(client.searchCities("Beijing")).thenReturn(List.of(beijing, anotherBeijing));
+        CityData illinois = new CityData("Springfield", "Illinois", "United States", 39.78, -89.64, "America/Chicago");
+        CityData massachusetts = new CityData("Springfield", "Massachusetts", "United States", 42.10, -72.59, "America/New_York");
+        when(client.searchCities("Springfield")).thenReturn(List.of(illinois, massachusetts));
 
-        assertThrows(WeatherException.class, () -> service.getWeather("Beijing", LocalDate.now().plusDays(1)));
+        assertThrows(WeatherException.class, () -> service.getWeather("Springfield", LocalDate.now().plusDays(1)));
         verify(client, never()).getForecast(any(), any());
+    }
+
+    @Test
+    void prioritizesBeijingMunicipalityOverSameNamedPlacesInOtherProvinces() {
+        CityData beijingMunicipality = new CityData("北京", "北京市", "中国", 39.90, 116.40, "Asia/Shanghai");
+        CityData beijingChongqing = new CityData("北京", "重庆市", "中国", 29.56, 106.55, "Asia/Shanghai");
+        CityData beijingSichuan = new CityData("北京", "四川省", "中国", 30.65, 104.07, "Asia/Shanghai");
+        when(client.searchCities("北京")).thenReturn(List.of(beijingMunicipality, beijingChongqing, beijingSichuan));
+
+        assertEquals(List.of(beijingMunicipality), service.searchCityCandidates("北京"));
     }
 
     @Test

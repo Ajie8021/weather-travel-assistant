@@ -31,6 +31,15 @@ public class WeatherService {
         String query = city.trim();
         List<CityData> candidates = client.searchCities(query);
 
+        // A query for one of China's four municipalities normally means the
+        // municipality itself, not a same-named village in another province.
+        // This remains deliberately narrow; ordinary same-name cities still
+        // require the user to choose a candidate.
+        List<CityData> municipalityMatches = candidates.stream()
+                .filter(candidate -> isExactChineseMunicipality(query, candidate))
+                .toList();
+        if (municipalityMatches.size() == 1) return municipalityMatches;
+
         // Open-Meteo may return several same-name cities.  When the user has
         // already supplied a province/state or country, retain candidates
         // whose returned administrative information occurs in that input.
@@ -53,6 +62,13 @@ public class WeatherService {
         String normalizedQuery = normalizeLocation(query);
         String normalizedName = normalizeLocation(candidate.name());
         return !normalizedName.isBlank() && !normalizedQuery.replace(normalizedName, "").isBlank();
+    }
+
+    private boolean isExactChineseMunicipality(String query, CityData candidate) {
+        String normalizedQuery = normalizeLocation(query);
+        if (!List.of("北京", "上海", "天津", "重庆").contains(normalizedQuery)) return false;
+        return normalizedQuery.equals(normalizeLocation(candidate.name()))
+                && normalizedQuery.equals(normalizeLocation(candidate.adminArea()));
     }
 
     private boolean containsLocationPart(String query, String locationPart) {
