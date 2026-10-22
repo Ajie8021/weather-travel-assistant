@@ -7,6 +7,69 @@
   const send = form.querySelector('button');
   let sessionId = sessionStorage.getItem('travel-agent-session') || null;
 
+  function appendInlineMarkdown(parent, text) {
+    const tokenPattern = /(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|`[^`\n]+`)/g;
+    let cursor = 0;
+    for (const match of text.matchAll(tokenPattern)) {
+      if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
+      const token = match[0];
+      const node = document.createElement(token.startsWith('**') ? 'strong' : token.startsWith('`') ? 'code' : 'em');
+      node.textContent = token.startsWith('**') ? token.slice(2, -2) : token.slice(1, -1);
+      parent.append(node);
+      cursor = match.index + token.length;
+    }
+    if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+  }
+
+  function renderMarkdown(target, markdown) {
+    const fragment = document.createDocumentFragment();
+    let paragraph = null;
+    let list = null;
+
+    markdown.replace(/\r\n?/g, '\n').split('\n').forEach((line) => {
+      if (!line.trim()) {
+        paragraph = null;
+        list = null;
+        return;
+      }
+
+      const heading = line.match(/^\s{0,3}(#{1,3})\s+(.+)$/);
+      const orderedItem = line.match(/^\s*\d+[.)]\s+(.+)$/);
+      const unorderedItem = line.match(/^\s*[-*+]\s+(.+)$/);
+      if (heading) {
+        paragraph = null;
+        list = null;
+        const title = document.createElement(heading[1].length === 1 ? 'h3' : 'h4');
+        appendInlineMarkdown(title, heading[2]);
+        fragment.append(title);
+        return;
+      }
+      if (orderedItem || unorderedItem) {
+        paragraph = null;
+        const tagName = orderedItem ? 'ol' : 'ul';
+        if (!list || list.tagName.toLowerCase() !== tagName) {
+          list = document.createElement(tagName);
+          fragment.append(list);
+        }
+        const item = document.createElement('li');
+        appendInlineMarkdown(item, (orderedItem || unorderedItem)[1]);
+        list.append(item);
+        return;
+      }
+
+      list = null;
+      if (!paragraph) {
+        paragraph = document.createElement('p');
+        fragment.append(paragraph);
+      } else {
+        paragraph.append(document.createElement('br'));
+      }
+      appendInlineMarkdown(paragraph, line);
+    });
+
+    target.replaceChildren(fragment);
+  }
+
   function addMessage(role, text, pending = false) {
     const article = document.createElement('article');
     article.className = `message ${role === 'user' ? 'user-message' : 'assistant-message'}`;
@@ -15,14 +78,14 @@
     avatar.textContent = role === 'user' ? '我' : 'W';
     const body = document.createElement('div');
     body.className = 'message-body';
-    const paragraph = document.createElement('p');
-    paragraph.textContent = text;
-    if (pending) paragraph.className = 'typing';
-    body.append(paragraph);
+    const messageText = document.createElement('div');
+    messageText.textContent = text;
+    if (pending) messageText.className = 'typing';
+    body.append(messageText);
     article.append(avatar, body);
     messages.append(article);
     messages.scrollTop = messages.scrollHeight;
-    return paragraph;
+    return messageText;
   }
 
   function field(label, value, suffix = '') {
@@ -123,7 +186,7 @@
       if (!response.ok) throw new Error(payload.message || '请求失败，请稍后重试。');
       sessionId = payload.sessionId || sessionId;
       if (sessionId) sessionStorage.setItem('travel-agent-session', sessionId);
-      pending.textContent = payload.reply || '我暂时没有生成回复，请再试一次。';
+      renderMarkdown(pending, payload.reply || '我暂时没有生成回复，请再试一次。');
       pending.classList.remove('typing');
       if (Array.isArray(payload.toolCalls) && payload.toolCalls.length) {
         const log = document.createElement('div');
