@@ -60,9 +60,6 @@ public class TravelPlan {
     /** 数据来源及核实情况的说明 */
     private List<String> dataSources = new ArrayList<>();
 
-    /** 用户选择的活动偏好：OUTDOOR、INDOOR 或 FOOD */
-    private String activityPreference;
-
     public TravelPlan() {
         // 保留无参构造方法，方便服务组装计划对象。
     }
@@ -203,13 +200,5 @@ public class TravelPlan {
         this.dataSources = dataSources == null
                 ? new ArrayList<>()
                 : new ArrayList<>(dataSources);
-    }
-
-    public String getActivityPreference() {
-        return activityPreference;
-    }
-
-    public void setActivityPreference(String activityPreference) {
-        this.activityPreference = activityPreference;
     }
 }
