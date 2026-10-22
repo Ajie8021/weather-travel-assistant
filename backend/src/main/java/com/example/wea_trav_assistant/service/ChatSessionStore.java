@@ -28,6 +28,30 @@ public class ChatSessionStore {
         public void pendingCities(List<CityData> value) { pendingCities = value; }
         public CityData confirmedCity() { return confirmedCity; }
         public void confirmedCity(CityData value) { confirmedCity = value; }
+        /**
+         * Confirms a candidate without throwing away an existing weather
+         * result or plan when it represents the same physical location.
+         */
+        public void confirmCity(CityData value) {
+            boolean changed = !sameLocation(confirmedCity, value);
+            confirmedCity = value;
+            pendingCities = List.of();
+            if (changed) {
+                lastRequest = null;
+                lastPlan = null;
+                lastWeather = null;
+            }
+            touch();
+        }
+
+        private boolean sameLocation(CityData left, CityData right) {
+            return left != null && right != null
+                    && Math.abs(left.latitude() - right.latitude()) < 0.0001
+                    && Math.abs(left.longitude() - right.longitude()) < 0.0001
+                    && safeValue(left.timezone()).equals(safeValue(right.timezone()));
+        }
+
+        private static String safeValue(String value) { return value == null ? "" : value; }
         public TravelRequest lastRequest() { return lastRequest; }
         public void lastRequest(TravelRequest value) { lastRequest = value; }
         public TravelPlan lastPlan() { return lastPlan; }
@@ -85,9 +109,7 @@ public class ChatSessionStore {
             if (nameMatches.size() == 1) selected = nameMatches.getFirst();
         }
         if (selected == null) return "请回复候选编号或更完整的城市名称，例如“1”或“广州，广东省，中国”。";
-        session.confirmedCity(selected);
-        session.pendingCities(List.of());
-        session.touch();
+        session.confirmCity(selected);
         return null;
     }
 
