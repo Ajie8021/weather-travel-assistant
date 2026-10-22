@@ -9,6 +9,7 @@ import tools.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class WeatherService {
@@ -27,7 +28,43 @@ public class WeatherService {
         if (city == null || city.isBlank()) {
             throw new WeatherException(WeatherErrorCode.INVALID_INPUT, "请输入城市名称");
         }
-        return client.searchCities(city.trim());
+        String query = city.trim();
+        List<CityData> candidates = client.searchCities(query);
+
+        // Open-Meteo may return several same-name cities.  When the user has
+        // already supplied a province/state or country, retain candidates
+        // whose returned administrative information occurs in that input.
+        // If no such metadata was supplied, keep every candidate so that the
+        // Agent can ask the user to choose instead of guessing.
+        List<CityData> administrativeMatches = candidates.stream()
+                .filter(candidate -> hasAdditionalLocationInfo(query, candidate)
+                        && containsLocationPart(query, candidate.adminArea()))
+                .toList();
+        if (!administrativeMatches.isEmpty()) return administrativeMatches;
+
+        List<CityData> countryMatches = candidates.stream()
+                .filter(candidate -> hasAdditionalLocationInfo(query, candidate)
+                        && containsLocationPart(query, candidate.country()))
+                .toList();
+        return countryMatches.isEmpty() ? candidates : countryMatches;
+    }
+
+    private boolean hasAdditionalLocationInfo(String query, CityData candidate) {
+        String normalizedQuery = normalizeLocation(query);
+        String normalizedName = normalizeLocation(candidate.name());
+        return !normalizedName.isBlank() && !normalizedQuery.replace(normalizedName, "").isBlank();
+    }
+
+    private boolean containsLocationPart(String query, String locationPart) {
+        if (locationPart == null || locationPart.isBlank()) return false;
+        return normalizeLocation(query).contains(normalizeLocation(locationPart));
+    }
+
+    private String normalizeLocation(String value) {
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[\\s,，、()（）-]", "")
+                .replace("省", "").replace("市", "")
+                .replace("自治区", "").replace("特别行政区", "");
     }
 
     public WeatherData getWeather(CityData confirmedCity, LocalDate date) {

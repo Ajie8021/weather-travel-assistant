@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClient;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,7 +76,7 @@ public class AgentService {
         }
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
             return new ChatResponse(sessionId,
-                    "智能体模型尚未配置。请在运行环境中设置 OPENAI_API_KEY，并重启服务后再试。",
+                    "智能体模型尚未配置。请在运行环境中设置 DASHSCOPE_API_KEY，并重启服务后再试。",
                     "FAILED", List.of(), null, null);
         }
 
@@ -98,6 +99,7 @@ public class AgentService {
     private String runToolLoop(Session session, List<Map<String, Object>> tools,
                                List<ChatResponse.ToolCallResult> calls) throws Exception {
         List<Map<String, Object>> messages = new ArrayList<>();
+        Set<String> failedToolRequests = new HashSet<>();
         messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT + "\n当前日期：" + LocalDate.now()));
         messages.addAll(session.history());
         for (int round = 0; round < properties.getMaxToolCalls(); round++) {
@@ -142,10 +144,21 @@ public class AgentService {
                     sessions.addRawMessage(session, toolMessage(callId, toolError));
                     long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000;
                     calls.add(new ChatResponse.ToolCallResult(name, "FAILED", safeMessage(error) + "（耗时 " + elapsedMs + " ms）"));
+                    if (!failedToolRequests.add(toolFailureKey(name, arguments))) {
+                        throw new IllegalStateException("工具 " + name + " 对相同参数连续调用失败，已停止重试：" + safeMessage(error));
+                    }
                 }
             }
         }
         return "本次工具调用已达到安全上限，请缩小请求范围后重试。";
+    }
+
+    private String toolFailureKey(String name, Map<String, Object> arguments) {
+        try {
+            return name + ":" + mapper.writeValueAsString(arguments);
+        } catch (Exception ignored) {
+            return name + ":" + arguments;
+        }
     }
 
     private Map<String, Object> choiceMessage(Map<String, Object> response) {
@@ -219,17 +232,10 @@ public class AgentService {
                 return generatePlan(args, session);
             }
             if (name.equals("get_weather")) confirmedLocation(args, session);
-            if (name.equals("search_city")) {
-                session.lastPlan(null);
-                session.lastWeather(null);
-                session.confirmedCity(null);
-                session.pendingCities(List.of());
-            }
-            if (name.equals("generate_travel_plan") && remoteToolNames.contains(name)) {
-                session.lastPlan(null);
-                session.lastWeather(null);
-            }
             if (name.equals("generate_travel_plan")) {
+                if (!session.pendingCities().isEmpty()) {
+                    throw new IllegalArgumentException("地点尚未确认，请先让用户选择候选城市");
+                }
                 CityData confirmed = session.confirmedCity();
                 String requestedCity = optionalString(args.get("city"));
                 if (confirmed == null || (requestedCity != null && !requestedCity.equalsIgnoreCase(confirmed.name()))) {
@@ -281,20 +287,14 @@ public class AgentService {
 
     private Object searchCity(Map<String, Object> args, Session session) {
         String city = requiredString(args.get("city"), "请提供城市名称");
-        session.lastPlan(null);
-        session.lastWeather(null);
-        session.confirmedCity(null);
-        session.pendingCities(List.of());
         List<CityData> candidates = weatherService.searchCityCandidates(city);
         if (candidates.isEmpty()) return Map.of("status", "NOT_FOUND", "message", "没有找到该城市，请补充地区或国家");
         if (candidates.size() == 1) {
             CityData confirmed = candidates.getFirst();
-            session.confirmedCity(confirmed);
-            session.pendingCities(List.of());
+            session.confirmCity(confirmed);
             return Map.of("status", "CONFIRMED", "location", confirmed);
         }
         session.pendingCities(candidates);
-        session.confirmedCity(null);
         List<Map<String, Object>> summaries = candidates.stream().map(c -> Map.<String, Object>of(
                 "name", c.name(), "adminArea", c.adminArea() == null ? "" : c.adminArea(),
                 "country", c.country() == null ? "" : c.country())).toList();
@@ -380,6 +380,9 @@ public class AgentService {
     }
 
     private CityData confirmedLocation(Map<String, Object> args, Session session) {
+        if (!session.pendingCities().isEmpty()) {
+            throw new IllegalArgumentException("地点尚未确认，请先让用户选择候选城市");
+        }
         CityData confirmed = session.confirmedCity();
         if (confirmed == null) throw new IllegalArgumentException("地点尚未确认，请先调用 search_city 并让用户选择候选");
         Object location = args.get("location");
@@ -463,8 +466,7 @@ public class AgentService {
             Object location = map.get("location");
             if (location instanceof Map<?, ?> cityMap) {
                 CityData city = cityFromMap(cityMap);
-                session.confirmedCity(city);
-                session.pendingCities(List.of());
+                session.confirmCity(city);
                 return;
             }
             if (map.get("candidates") != null) candidatesValue = map.get("candidates");
@@ -473,11 +475,9 @@ public class AgentService {
             List<CityData> candidates = list.stream().filter(Map.class::isInstance)
                     .map(Map.class::cast).map(this::cityFromMap).toList();
             if (candidates.size() == 1) {
-                session.confirmedCity(candidates.getFirst());
-                session.pendingCities(List.of());
+                session.confirmCity(candidates.getFirst());
             }
             else if (!candidates.isEmpty()) {
-                session.confirmedCity(null);
                 session.pendingCities(candidates);
             }
         }
@@ -547,7 +547,7 @@ public class AgentService {
         if (exception instanceof WeatherException weatherException) return weatherException.getMessage();
         String message = exception.getMessage();
         if (message == null || message.isBlank()) return "智能体服务暂时不可用，请稍后重试。";
-        if (message.contains("401") || message.contains("403")) return "模型鉴权失败，请检查 OPENAI_API_KEY 配置。";
+        if (message.contains("401") || message.contains("403")) return "模型鉴权失败，请检查 DASHSCOPE_API_KEY 配置。";
         if (message.length() > 240) return "天气或模型服务暂时不可用，请稍后重试。";
         return message;
     }

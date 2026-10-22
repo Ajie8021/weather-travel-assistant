@@ -1,6 +1,8 @@
 package com.example.wea_trav_assistant.service;
 
 import com.example.wea_trav_assistant.dto.CityData;
+import com.example.wea_trav_assistant.dto.TravelPlan;
+import com.example.wea_trav_assistant.dto.WeatherData;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -33,5 +35,37 @@ class ChatSessionStoreTest {
         assertNull(store.selectPendingCity(session, "第2个"));
         assertEquals("Massachusetts", session.confirmedCity().adminArea());
         assertTrue(session.pendingCities().isEmpty());
+    }
+
+    @Test
+    void reconfirmingTheSameLocationPreservesConversationContext() {
+        ChatSessionStore store = new ChatSessionStore();
+        ChatSessionStore.Session session = store.get("session-one");
+        CityData guangzhou = new CityData("广州", "广东省", "中国", 23.13, 113.26, "Asia/Shanghai");
+        WeatherData weather = new WeatherData();
+        TravelPlan plan = new TravelPlan();
+        session.confirmCity(guangzhou);
+        session.lastWeather(weather);
+        session.lastPlan(plan);
+
+        session.confirmCity(new CityData("广州", "广东", "中国", 23.13001, 113.26001, "Asia/Shanghai"));
+
+        assertSame(weather, session.lastWeather());
+        assertSame(plan, session.lastPlan());
+    }
+
+    @Test
+    void confirmingANewLocationClearsOldWeatherAndPlan() {
+        ChatSessionStore store = new ChatSessionStore();
+        ChatSessionStore.Session session = store.get("session-one");
+        session.confirmCity(new CityData("广州", "广东省", "中国", 23.13, 113.26, "Asia/Shanghai"));
+        session.lastWeather(new WeatherData());
+        session.lastPlan(new TravelPlan());
+
+        session.confirmCity(new CityData("深圳", "广东省", "中国", 22.54, 114.06, "Asia/Shanghai"));
+
+        assertEquals("深圳", session.confirmedCity().name());
+        assertNull(session.lastWeather());
+        assertNull(session.lastPlan());
     }
 }

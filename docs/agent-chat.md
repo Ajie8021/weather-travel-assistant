@@ -15,17 +15,17 @@
 后端需要 Java 21。使用 PowerShell 启动前，在当前窗口设置模型服务配置：
 
 ```powershell
-$env:OPENAI_API_KEY = "你的模型服务密钥"
-# 默认使用 OpenAI；兼容服务可设置其 API 根地址和模型名：
-$env:OPENAI_BASE_URL = "https://api.openai.com/v1"
-$env:OPENAI_MODEL = "gpt-4o-mini"
+$env:DASHSCOPE_API_KEY = "你的 DashScope 模型服务密钥"
+# DashScope 的 OpenAI 兼容接口；如团队指定了其他模型，可按需要覆盖模型名。
+$env:DASHSCOPE_BASE_URL = "https://llm-435dp91na852pfx3.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+$env:DASHSCOPE_MODEL = "qwen3.7-plus"
 # A/B 的 MCP Streamable HTTP 服务接入后再配置；留空时使用仓库内本地服务适配器：
 $env:MCP_ENDPOINT = ""
 cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-然后访问 `http://localhost:8080/chat`。模型密钥只从环境变量读取，不要写入仓库或提交到 Git。没有设置 `OPENAI_API_KEY` 时，聊天 API 会返回明确的配置提示；原有表单功能不受影响。
+然后访问 `http://localhost:8080/chat`。模型密钥只从环境变量读取，不要写入仓库或提交到 Git。没有设置 `DASHSCOPE_API_KEY` 时，聊天 API 会返回明确的配置提示；原有表单功能不受影响。
 
 ## 演示示例
 
