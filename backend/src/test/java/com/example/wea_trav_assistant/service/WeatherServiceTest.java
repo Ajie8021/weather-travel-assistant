@@ -36,6 +36,27 @@ class WeatherServiceTest {
     }
 
     @Test
+    void narrowsSameNameCandidatesWhenProvinceAndCountryAreProvided() {
+        CityData shenzhenGuangdong = new CityData("深圳", "广东省", "中国", 22.54, 114.06, "Asia/Shanghai");
+        CityData shenzhenHubei = new CityData("深圳", "湖北省", "中国", 30.50, 114.30, "Asia/Shanghai");
+        when(client.searchCities("中国广东省深圳市"))
+                .thenReturn(List.of(shenzhenGuangdong, shenzhenHubei));
+
+        List<CityData> candidates = service.searchCityCandidates("中国广东省深圳市");
+
+        assertEquals(List.of(shenzhenGuangdong), candidates);
+    }
+
+    @Test
+    void keepsAllCandidatesWhenUserOnlyProvidesAnAmbiguousCityName() {
+        CityData first = new CityData("Springfield", "Illinois", "United States", 39.78, -89.64, "America/Chicago");
+        CityData second = new CityData("Springfield", "Massachusetts", "United States", 42.10, -72.59, "America/New_York");
+        when(client.searchCities("Springfield")).thenReturn(List.of(first, second));
+
+        assertEquals(List.of(first, second), service.searchCityCandidates("Springfield"));
+    }
+
+    @Test
     void mapsForecast() throws Exception {
         // 查询明天的天气，避免使用超出预报范围的日期
         LocalDate date = LocalDate.now().plusDays(1);
