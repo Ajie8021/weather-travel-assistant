@@ -39,6 +39,30 @@ public class TravelPlan {
     /** 注意事项；没有提醒时为空列表 */
     private List<String> warnings = new ArrayList<>();
 
+    /** 结构化时段计划，逐步替代三个纯文本活动字段 */
+    private List<PeriodPlan> periodPlans = new ArrayList<>();
+
+    /** 预算估算下限，单位由 budgetCurrency 指定 */
+    private Double budgetMin;
+
+    /** 预算估算上限，单位由 budgetCurrency 指定 */
+    private Double budgetMax;
+
+    /** 预算币种，例如 CNY */
+    private String budgetCurrency = "CNY";
+
+    /** 预算估算说明，例如是否包含交通、餐饮和门票 */
+    private String budgetNote;
+
+    /** 天气不适宜时的备选方案 */
+    private String alternativePlan;
+
+    /** 数据来源及核实情况的说明 */
+    private List<String> dataSources = new ArrayList<>();
+
+    /** 用户选择的活动偏好：OUTDOOR、INDOOR 或 FOOD */
+    private String activityPreference;
+
     public TravelPlan() {
         // 保留无参构造方法，方便服务组装计划对象。
     }
@@ -119,5 +143,73 @@ public class TravelPlan {
         this.warnings = warnings == null
                 ? new ArrayList<>()
                 : new ArrayList<>(warnings);
+    }
+
+    public List<PeriodPlan> getPeriodPlans() {
+        return periodPlans;
+    }
+
+    public void setPeriodPlans(List<PeriodPlan> periodPlans) {
+        this.periodPlans = periodPlans == null
+                ? new ArrayList<>()
+                : new ArrayList<>(periodPlans);
+    }
+
+    public Double getBudgetMin() {
+        return budgetMin;
+    }
+
+    public void setBudgetMin(Double budgetMin) {
+        this.budgetMin = budgetMin;
+    }
+
+    public Double getBudgetMax() {
+        return budgetMax;
+    }
+
+    public void setBudgetMax(Double budgetMax) {
+        this.budgetMax = budgetMax;
+    }
+
+    public String getBudgetCurrency() {
+        return budgetCurrency;
+    }
+
+    public void setBudgetCurrency(String budgetCurrency) {
+        this.budgetCurrency = budgetCurrency;
+    }
+
+    public String getBudgetNote() {
+        return budgetNote;
+    }
+
+    public void setBudgetNote(String budgetNote) {
+        this.budgetNote = budgetNote;
+    }
+
+    public String getAlternativePlan() {
+        return alternativePlan;
+    }
+
+    public void setAlternativePlan(String alternativePlan) {
+        this.alternativePlan = alternativePlan;
+    }
+
+    public List<String> getDataSources() {
+        return dataSources;
+    }
+
+    public void setDataSources(List<String> dataSources) {
+        this.dataSources = dataSources == null
+                ? new ArrayList<>()
+                : new ArrayList<>(dataSources);
+    }
+
+    public String getActivityPreference() {
+        return activityPreference;
+    }
+
+    public void setActivityPreference(String activityPreference) {
+        this.activityPreference = activityPreference;
     }
 }
