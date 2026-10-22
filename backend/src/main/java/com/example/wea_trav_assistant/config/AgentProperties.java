@@ -5,8 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "agent")
 public class AgentProperties {
     private String apiKey = "";
-    private String baseUrl = "https://api.openai.com/v1";
-    private String model = "gpt-4o-mini";
+    private String baseUrl = "https://llm-435dp91na852pfx3.cn-beijing.maas.aliyuncs.com/compatible-mode/v1";
+    private String model = "qwen3.7-plus";
     private String mcpEndpoint = "";
     private int maxToolCalls = 4;
 

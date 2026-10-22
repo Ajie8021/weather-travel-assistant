@@ -75,7 +75,7 @@ public class AgentService {
         }
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
             return new ChatResponse(sessionId,
-                    "智能体模型尚未配置。请在运行环境中设置 OPENAI_API_KEY，并重启服务后再试。",
+                    "智能体模型尚未配置。请在运行环境中设置 DASHSCOPE_API_KEY，并重启服务后再试。",
                     "FAILED", List.of(), null, null);
         }
 
@@ -547,7 +547,7 @@ public class AgentService {
         if (exception instanceof WeatherException weatherException) return weatherException.getMessage();
         String message = exception.getMessage();
         if (message == null || message.isBlank()) return "智能体服务暂时不可用，请稍后重试。";
-        if (message.contains("401") || message.contains("403")) return "模型鉴权失败，请检查 OPENAI_API_KEY 配置。";
+        if (message.contains("401") || message.contains("403")) return "模型鉴权失败，请检查 DASHSCOPE_API_KEY 配置。";
         if (message.length() > 240) return "天气或模型服务暂时不可用，请稍后重试。";
         return message;
     }

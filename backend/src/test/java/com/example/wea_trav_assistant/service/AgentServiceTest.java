@@ -26,7 +26,7 @@ class AgentServiceTest {
         ChatResponse response = service.chat(new ChatRequest(null, "查一下明天广州天气"));
 
         assertEquals("FAILED", response.status());
-        assertTrue(response.reply().contains("OPENAI_API_KEY"));
+        assertTrue(response.reply().contains("DASHSCOPE_API_KEY"));
         assertNotNull(response.sessionId());
         assertTrue(response.toolCalls().isEmpty());
         verifyNoInteractions(weatherService, planService, mcpClient);
