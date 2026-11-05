@@ -7,12 +7,14 @@ import com.example.wea_trav_assistant.dto.CityData;
 import com.example.wea_trav_assistant.dto.TravelPlan;
 import com.example.wea_trav_assistant.dto.TravelRequest;
 import com.example.wea_trav_assistant.dto.WeatherData;
+import com.example.wea_trav_assistant.dto.TransportMode;
 import com.example.wea_trav_assistant.exception.WeatherException;
 import com.example.wea_trav_assistant.service.ChatSessionStore.Session;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
@@ -32,6 +34,8 @@ public class AgentService {
             用户只给城市名时，先调用 search_city。若返回多个候选，列出候选并等待用户明确选择，不能自行选首项。
             对日期使用 ISO 日期格式，日期表示目的地当地日期；相对日期以当前日期为准。工具报错时如实说明，不伪造结果。
             生成行程时优先使用当前会话已确认的城市、日期和偏好。用户只修改一个条件时继承其他条件。
+            推荐景点时必须先调用 search_attractions；规划交通时必须先取得两个真实 POI ID 再调用 plan_transport。
+            不得编造景点、地址、评分、营业时间、距离、票价或路线时长。
             缺失天气字段必须说明数据不足，不能用 0 或晴天代替。只根据工具返回的结构化结果展示天气卡片和计划。
             回复使用简洁中文。工具状态由实际调用结果决定。
             """;
@@ -40,24 +44,37 @@ public class AgentService {
     private final ChatSessionStore sessions;
     private final WeatherService weatherService;
     private final TravelPlanService planService;
+    private final PoiService poiService;
+    private final RouteService routeService;
     private final McpToolClient mcpClient;
     private final ObjectMapper mapper;
     private final RestClient llmClient;
     private volatile Set<String> remoteToolNames = Set.of();
 
+    @Autowired
     public AgentService(AgentProperties properties, ChatSessionStore sessions,
                         WeatherService weatherService, TravelPlanService planService,
-                        McpToolClient mcpClient, ObjectMapper mapper) {
+                        McpToolClient mcpClient, ObjectMapper mapper,
+                        PoiService poiService, RouteService routeService) {
         this.properties = properties;
         this.sessions = sessions;
         this.weatherService = weatherService;
         this.planService = planService;
+        this.poiService = poiService;
+        this.routeService = routeService;
         this.mcpClient = mcpClient;
         this.mapper = mapper;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(5_000);
         requestFactory.setReadTimeout(45_000);
         this.llmClient = RestClient.builder().requestFactory(requestFactory).build();
+    }
+
+    /** Kept for focused unit tests created before attraction and route services existed. */
+    public AgentService(AgentProperties properties, ChatSessionStore sessions,
+                        WeatherService weatherService, TravelPlanService planService,
+                        McpToolClient mcpClient, ObjectMapper mapper) {
+        this(properties, sessions, weatherService, planService, mcpClient, mapper, null, null);
     }
 
     public ChatResponse chat(ChatRequest request) {
@@ -179,7 +196,8 @@ public class AgentService {
             for (Map<String, Object> tool : mcpClient.listTools()) {
                 String name = String.valueOf(tool.get("name"));
                 if (!(name.equals("search_city") || name.equals("get_weather")
-                        || name.equals("generate_travel_plan"))) continue;
+                        || name.equals("generate_travel_plan") || name.equals("search_attractions")
+                        || name.equals("get_attraction_detail") || name.equals("plan_transport"))) continue;
                 Map<String, Object> function = new LinkedHashMap<>();
                 function.put("name", name);
                 function.put("description", tool.getOrDefault("description", "天气与出行工具"));
@@ -194,6 +212,22 @@ public class AgentService {
                         objectSchema(Map.of("city", stringSchema("城市名"), "date", stringSchema("YYYY-MM-DD"),
                                 "activityPreference", enumSchema(List.of("OUTDOOR", "INDOOR", "FOOD"))),
                                 List.of("city", "date", "activityPreference"))));
+            }
+            if (!remoteToolNames.contains("search_attractions")) {
+                tools.add(functionTool("search_attractions", "在指定城市按偏好搜索高德地图的真实景点，返回真实 POI ID、坐标和来源。",
+                        objectSchema(Map.of("city", stringSchema("城市名"), "keyword", stringSchema("偏好或关键词"),
+                                "limit", numberSchema()), List.of("city", "keyword"))));
+            }
+            if (!remoteToolNames.contains("get_attraction_detail")) {
+                tools.add(functionTool("get_attraction_detail", "根据 search_attractions 返回的真实 POI ID 查询景点详情。",
+                        objectSchema(Map.of("poiId", stringSchema("真实 POI ID")), List.of("poiId"))));
+            }
+            if (!remoteToolNames.contains("plan_transport")) {
+                tools.add(functionTool("plan_transport", "根据两个真实 POI ID 查询高德地图的真实交通距离和时长。",
+                        objectSchema(Map.of("originPoiId", stringSchema("起点 POI ID"),
+                                "destinationPoiId", stringSchema("终点 POI ID"),
+                                "transportPreference", enumSchema(List.of("PUBLIC_TRANSPORT", "DRIVING", "WALKING", "CYCLING"))),
+                                List.of("originPoiId", "destinationPoiId", "transportPreference"))));
             }
             tools.add(functionTool("modify_travel_plan", "仅修改已生成计划的一个时段，保留其他已确认条件。",
                     objectSchema(Map.of("period", enumSchema(List.of("morning", "afternoon", "evening")),
@@ -218,19 +252,33 @@ public class AgentService {
                 functionTool("modify_travel_plan", "仅修改已生成计划的一个时段，保留其他已确认条件。",
                         objectSchema(Map.of("period", enumSchema(List.of("morning", "afternoon", "evening")),
                                 "activityPreference", enumSchema(List.of("OUTDOOR", "INDOOR", "FOOD"))),
-                                List.of("period", "activityPreference")))
+                            List.of("period", "activityPreference"))),
+                functionTool("search_attractions", "在指定城市按偏好搜索高德地图的真实景点，返回真实 POI ID、坐标和来源。",
+                        objectSchema(Map.of("city", stringSchema("城市名"), "keyword", stringSchema("偏好或关键词"),
+                                "limit", numberSchema()), List.of("city", "keyword"))),
+                functionTool("get_attraction_detail", "根据 search_attractions 返回的真实 POI ID 查询景点详情。",
+                        objectSchema(Map.of("poiId", stringSchema("真实 POI ID")), List.of("poiId"))),
+                functionTool("plan_transport", "根据两个真实 POI ID 查询高德地图的真实交通距离和时长。",
+                        objectSchema(Map.of("originPoiId", stringSchema("起点 POI ID"),
+                                "destinationPoiId", stringSchema("终点 POI ID"),
+                                "transportPreference", enumSchema(List.of("PUBLIC_TRANSPORT", "DRIVING", "WALKING", "CYCLING"))),
+                                List.of("originPoiId", "destinationPoiId", "transportPreference")))
         );
     }
 
     private Object executeTool(String name, Map<String, Object> args, Session session) throws Exception {
         if (mcpClient.isConfigured()) {
             if (name.equals("modify_travel_plan")) return modifyPlan(args, session);
-            if (!List.of("search_city", "get_weather", "generate_travel_plan").contains(name)) {
+            if (!List.of("search_city", "get_weather", "generate_travel_plan", "search_attractions",
+                    "get_attraction_detail", "plan_transport").contains(name)) {
                 throw new IllegalArgumentException("该工具不在允许列表中");
             }
             if (name.equals("generate_travel_plan") && !remoteToolNames.contains(name)) {
                 return generatePlan(args, session);
             }
+            if (name.equals("search_attractions") && !remoteToolNames.contains(name)) return searchAttractions(args);
+            if (name.equals("get_attraction_detail") && !remoteToolNames.contains(name)) return attractionDetail(args);
+            if (name.equals("plan_transport") && !remoteToolNames.contains(name)) return planTransport(args);
             if (name.equals("get_weather")) confirmedLocation(args, session);
             if (name.equals("generate_travel_plan")) {
                 if (!session.pendingCities().isEmpty()) {
@@ -281,8 +329,32 @@ public class AgentService {
             case "get_weather" -> getWeather(args, session);
             case "generate_travel_plan" -> generatePlan(args, session);
             case "modify_travel_plan" -> modifyPlan(args, session);
+            case "search_attractions" -> searchAttractions(args);
+            case "get_attraction_detail" -> attractionDetail(args);
+            case "plan_transport" -> planTransport(args);
             default -> throw new IllegalArgumentException("该工具不在允许列表中");
         };
+    }
+
+    private Object searchAttractions(Map<String, Object> args) {
+        if (poiService == null) throw new IllegalStateException("景点服务尚未就绪");
+        int limit = args.get("limit") instanceof Number number ? number.intValue() : 5;
+        return poiService.searchAttractions(requiredString(args.get("city"), "请提供城市名称"),
+                requiredString(args.get("keyword"), "请提供景点偏好"), limit);
+    }
+
+    private Object attractionDetail(Map<String, Object> args) {
+        if (poiService == null) throw new IllegalStateException("景点服务尚未就绪");
+        return poiService.getAttractionDetail(requiredString(args.get("poiId"), "请提供真实 POI ID"));
+    }
+
+    private Object planTransport(Map<String, Object> args) {
+        if (routeService == null) throw new IllegalStateException("交通服务尚未就绪");
+        TransportMode mode;
+        try { mode = TransportMode.valueOf(requiredString(args.get("transportPreference"), "请指定交通方式")); }
+        catch (IllegalArgumentException exception) { throw new IllegalArgumentException("交通方式必须为 PUBLIC_TRANSPORT、DRIVING、WALKING 或 CYCLING"); }
+        return routeService.planRoutes(requiredString(args.get("originPoiId"), "请提供起点 POI ID"),
+                requiredString(args.get("destinationPoiId"), "请提供终点 POI ID"), List.of(mode));
     }
 
     private Object searchCity(Map<String, Object> args, Session session) {

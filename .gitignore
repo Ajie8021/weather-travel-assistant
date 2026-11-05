@@ -10,4 +10,5 @@
 .idea/
 .m2-mcp-test-cache/
 .m2-diagnosis/
+.m2-test-cache/
 backend/test-run.log
