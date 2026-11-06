@@ -24,6 +24,11 @@ import java.util.Set;
  * 负责接收页面表单、校验请求、调用天气服务和计划服务，
  * 最后将 TravelPlan 放入 Model 供 Thymeleaf 页面展示。
  * 天气风险判断和活动推荐不在 Controller 中实现。
+ *
+ * 契约冻结说明（V2 集成阶段）：
+ * 本 Controller 的请求参数、返回页面/模型属性保持不变。
+ * 新增能力通过独立 JSON 接口或编排层实现，不修改本类语义。
+ *
  */
 @Controller
 public class TravelPlanController {
