@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>阶段2 Smoke 测试</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 24px; max-width: 1100px; }
+        textarea { width: 100%; height: 140px; font-family: monospace; }
+        pre { background: #f5f5f5; padding: 12px; overflow: auto; max-height: 420px; }
+        button { margin: 6px 6px 6px 0; padding: 6px 14px; cursor: pointer; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        label { font-size: 14px; }
+        input[type=text], input[type=number] { padding: 4px 6px; }
+    </style>
+</head>
+<body>
+<h2>阶段2 Smoke：冲突 → 确认 → 修改</h2>
+<p>本页只调 <code>/api/plans/smoke/*</code>，不依赖高德、天气、模型。需以 <code>dev</code> profile 启动。</p>
+
+<h3>1. 生成（降雨 + OUTDOOR）</h3>
+<div class="row">
+    <label>城市 <input id="city" type="text" value="广州"></label>
+    <label>日期 <input id="date" type="text" value="2026-11-06"></label>
+    <label>偏好 <input id="pref" type="text" value="OUTDOOR"></label>
+    <label>预算 <input id="budget" type="number" value="200"></label>
+    <label>天气代码 <input id="code" type="number" value="61"></label>
+    <label>降水概率 <input id="rainProb" type="number" value="70"></label>
+</div>
+<div>
+    <button onclick="generate()">生成并检测冲突</button>
+    <button onclick="useLastPlan()">把上次 data.plan 填入修改</button>
+</div>
+<pre id="genOut">（生成结果）</pre>
+
+<h3>2. 修改</h3>
+<div class="row">
+    <label>目标时段 <input id="targetPeriod" type="text" value="AFTERNOON"></label>
+    <label>新偏好 <input id="newPref" type="text" value="INDOOR"></label>
+    <label><input id="confirm" type="checkbox"> confirmConflicts（确认后才改）</label>
+</div>
+<textarea id="currentPlan" placeholder="currentPlan JSON"></textarea>
+<div>
+    <button onclick="modify()">提交修改</button>
+</div>
+<pre id="modOut">（修改结果）</pre>
+
+<script>
+    const weather = () => ({
+        city: document.getElementById('city').value,
+        date: document.getElementById('date').value,
+        weatherCode: Number(document.getElementById('code').value),
+        maxTemp: 25,
+        minTemp: 20,
+        precipitationProbability: Number(document.getElementById('rainProb').value),
+        precipitation: 2.0,
+        windSpeed: 10,
+        source: 'MOCK'
+    });
+
+    let lastPlan = null;
+
+    async function generate() {
+        const body = {
+            city: document.getElementById('city').value,
+            date: document.getElementById('date').value,
+            preference: document.getElementById('pref').value,
+            budget: Number(document.getElementById('budget').value),
+            weather: weather()
+        };
+        const res = await fetch('/api/plans/smoke/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify(body)
+        });
+        const json = await res.json();
+        document.getElementById('genOut').textContent = JSON.stringify(json, null, 2);
+        if (json.data && json.data.plan) {
+            lastPlan = json.data.plan;
+        }
+    }
+
+    function useLastPlan() {
+        if (!lastPlan) { alert('先点“生成并检测冲突”'); return; }
+        document.getElementById('currentPlan').value = JSON.stringify(lastPlan, null, 2);
+    }
+
+    async function modify() {
+        let current;
+        try {
+            current = JSON.parse(document.getElementById('currentPlan').value);
+        } catch (e) {
+            alert('currentPlan 不是合法 JSON：' + e.message);
+            return;
+        }
+        const body = {
+            currentPlan: current,
+            targetPeriod: document.getElementById('targetPeriod').value,
+            newActivityPreference: document.getElementById('newPref').value,
+            confirmConflicts: document.getElementById('confirm').checked,
+            weather: weather()
+        };
+        const res = await fetch('/api/plans/smoke/modify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify(body)
+        });
+        const json = await res.json();
+        document.getElementById('modOut').textContent = JSON.stringify(json, null, 2);
+    }
+</script>
+</body>
+</html>

@@ -12,3 +12,8 @@
 .m2-diagnosis/
 .m2-test-cache/
 backend/test-run.log
+
+resp-generate.json
+smoke-resp-generate.json
+req-*.json          （curl 临时生成的）
+*.dump
