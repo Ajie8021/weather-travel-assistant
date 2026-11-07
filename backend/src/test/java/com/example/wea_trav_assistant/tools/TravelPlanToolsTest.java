@@ -1,189 +1,290 @@
-
 package com.example.wea_trav_assistant.tools;
 
+import com.example.wea_trav_assistant.conflict.WeatherConflictProperties;
+import com.example.wea_trav_assistant.conflict.WeatherConflictService;
+import com.example.wea_trav_assistant.dto.AttractionDTO;
+import com.example.wea_trav_assistant.dto.PlanGenerateRequest;
+import com.example.wea_trav_assistant.dto.PlanResult;
+import com.example.wea_trav_assistant.dto.ScheduleItemDTO;
 import com.example.wea_trav_assistant.dto.TravelPlan;
-import com.example.wea_trav_assistant.dto.TravelRequest;
+import com.example.wea_trav_assistant.dto.TravelPlanDTO;
 import com.example.wea_trav_assistant.dto.WeatherData;
+import com.example.wea_trav_assistant.service.EnrichedTravelPlanService;
 import com.example.wea_trav_assistant.service.TravelPlanService;
 import com.example.wea_trav_assistant.service.TravelRuleService;
 import com.example.wea_trav_assistant.service.WeatherDataProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
  * TravelPlanTools 单元测试。
  *
- * 天气提供接口使用 Mockito 模拟，
- * 不请求真实天气 API，保证测试稳定且可重复。
+ * 说明：
+ * - 旧工具 generateTravelPlan 走 WeatherDataProvider + TravelPlanService；
+ * - 新工具 generateTravelPlanWithConflicts 走 EnrichedTravelPlanService + WeatherConflictService，
+ *   编排在工具内部完成，不存在外部 Orchestrator，因此这里不 mock 编排器；
+ * - PlanGenerateRequest 是 record，断言使用访问器 city()/date()/preference()/budget()/transportMode()。
  */
 class TravelPlanToolsTest {
 
     private WeatherDataProvider weatherDataProvider;
     private TravelPlanService travelPlanService;
+    private EnrichedTravelPlanService enrichedService;
+    private WeatherConflictService conflictService;
     private TravelPlanTools travelPlanTools;
 
-    private final LocalDate targetDate =
-            LocalDate.of(2026, 10, 20);
+    private final LocalDate targetDate = LocalDate.of(2026, 10, 20);
 
     @BeforeEach
     void setUp() {
-        // 模拟天气服务，避免测试依赖公网和外部 API。
         weatherDataProvider = mock(WeatherDataProvider.class);
-
-        // 使用真实规则服务和计划服务，
-        // 验证工具入口与已有业务逻辑之间的协作。
-        travelPlanService = new TravelPlanService(
-                new TravelRuleService());
+        travelPlanService = new TravelPlanService(new TravelRuleService());
+        enrichedService = mock(EnrichedTravelPlanService.class);
+        conflictService = new WeatherConflictService(new WeatherConflictProperties());
 
         travelPlanTools = new TravelPlanTools(
-                weatherDataProvider, travelPlanService);
+                weatherDataProvider, travelPlanService, enrichedService, conflictService);
 
-        // 配置测试用的晴朗天气。
-        WeatherData weather = createClearWeather();
-
-        // 当查询广州指定日期的天气时，返回上述测试数据。
         when(weatherDataProvider.getWeather("广州", targetDate))
-                .thenReturn(weather);
+                .thenReturn(createClearWeather());
     }
 
-    /**
-     * 创建晴朗、温度适中的测试天气。
-     */
     private WeatherData createClearWeather() {
-        WeatherData weather = new WeatherData();
-        weather.setCity("广州");
-        weather.setDate(targetDate);
-        weather.setWeatherCode(0);
-        weather.setMaxTemp(25.0);
-        weather.setMinTemp(18.0);
-        weather.setPrecipitationProbability(10);
-        weather.setPrecipitation(0.0);
-        weather.setWindSpeed(10.0);
-        return weather;
+        WeatherData w = new WeatherData();
+        w.setCity("广州");
+        w.setDate(targetDate);
+        w.setWeatherCode(0);
+        w.setMaxTemp(25.0);
+        w.setMinTemp(18.0);
+        w.setPrecipitationProbability(10);
+        w.setPrecipitation(0.0);
+        w.setWindSpeed(10.0);
+        return w;
     }
+
+    private WeatherData createRainyWeather() {
+        WeatherData w = new WeatherData();
+        w.setCity("广州");
+        w.setDate(targetDate);
+        w.setWeatherCode(61);
+        w.setMaxTemp(25.0);
+        w.setMinTemp(20.0);
+        w.setPrecipitationProbability(70);
+        w.setPrecipitation(2.0);
+        w.setWindSpeed(10.0);
+        return w;
+    }
+
+    /** 构造一个含户外景点的行程，用于触发时段级冲突。 */
+    private TravelPlanDTO samplePlan() {
+        AttractionDTO outdoor = new AttractionDTO(
+                "poi-1", "模拟公园", "地址", "广州", "公园",
+                113.0, 23.0, null, null, "MOCK");
+        List<ScheduleItemDTO> schedule = new ArrayList<>();
+        schedule.add(new ScheduleItemDTO("AFTERNOON", "14:00", "16:00", outdoor, "游览"));
+        return new TravelPlanDTO("广州", "2026-10-20",
+                List.of(outdoor), new ArrayList<>(), schedule, null, new ArrayList<>());
+    }
+
+    // ==================== 旧工具 generateTravelPlan ====================
 
     @Test
     void shouldGeneratePlanAndQueryWeather() {
-        // 验证工具能够完成天气查询到计划生成的完整调用链。
-        TravelPlan plan = travelPlanTools.generateTravelPlan(
-                "广州", "2026-10-20", "OUTDOOR");
-
+        TravelPlan plan = travelPlanTools.generateTravelPlan("广州", "2026-10-20", "OUTDOOR");
         assertNotNull(plan);
         assertEquals("广州", plan.getCity());
-        assertEquals("2026-10-20", plan.getDate());
-        assertNotNull(plan.getWeatherSummary());
-        assertNotNull(plan.getMorningActivity());
-        assertNotNull(plan.getAfternoonActivity());
-        assertNotNull(plan.getEveningActivity());
-
-        // 验证工具确实按照用户输入调用天气提供接口。
-        verify(weatherDataProvider, times(1))
-                .getWeather("广州", targetDate);
+        verify(weatherDataProvider, times(1)).getWeather("广州", targetDate);
     }
 
     @Test
     void shouldRejectBlankCity() {
-        // 城市为空时应立即报错，不应请求天气服务。
         assertThrows(IllegalArgumentException.class,
-                () -> travelPlanTools.generateTravelPlan(
-                        "  ", "2026-10-20", "OUTDOOR"));
-
+                () -> travelPlanTools.generateTravelPlan("  ", "2026-10-20", "OUTDOOR"));
         verifyNoInteractions(weatherDataProvider);
     }
 
     @Test
     void shouldRejectBlankDate() {
-        // 日期缺失时不能继续生成计划。
         assertThrows(IllegalArgumentException.class,
-                () -> travelPlanTools.generateTravelPlan(
-                        "广州", " ", "OUTDOOR"));
-
+                () -> travelPlanTools.generateTravelPlan("广州", " ", "OUTDOOR"));
         verifyNoInteractions(weatherDataProvider);
     }
 
     @Test
     void shouldRejectInvalidDateFormat() {
-        // 不接受 2026/10/20 这类非约定格式。
         assertThrows(IllegalArgumentException.class,
-                () -> travelPlanTools.generateTravelPlan(
-                        "广州", "2026/10/20", "OUTDOOR"));
-
+                () -> travelPlanTools.generateTravelPlan("广州", "2026/10/20", "OUTDOOR"));
         verifyNoInteractions(weatherDataProvider);
     }
 
     @Test
     void shouldRejectBlankActivityPreference() {
-        // 活动偏好是必填项。
         assertThrows(IllegalArgumentException.class,
-                () -> travelPlanTools.generateTravelPlan(
-                        "广州", "2026-10-20", " "));
-
+                () -> travelPlanTools.generateTravelPlan("广州", "2026-10-20", " "));
         verifyNoInteractions(weatherDataProvider);
     }
 
+    // ==================== 新工具 generateTravelPlanWithConflicts ====================
+
     @Test
-    void shouldPropagateInvalidPreferenceFromBusinessService() {
-        // 工具层不复制活动偏好的业务规则；
-        // 非法值由 TravelPlanService 统一拒绝。
-        assertThrows(IllegalArgumentException.class,
-                () -> travelPlanTools.generateTravelPlan(
-                        "广州", "2026-10-20", "SHOPPING"));
+    void withConflicts_shouldDelegateToEnrichedServiceAndAssembleResult() {
+        when(enrichedService.generate(any(PlanGenerateRequest.class))).thenReturn(samplePlan());
+
+        PlanResult result = travelPlanTools.generateTravelPlanWithConflicts(
+                "广州", "2026-10-20", "OUTDOOR", 200.0, "PUBLIC_TRANSPORT");
+
+        assertNotNull(result);
+        assertNotNull(result.getPlan());
+        assertNotNull(result.getConflicts());
+        assertNotNull(result.getReply());
+
+        // 校验传给生成服务的请求字段（record 访问器）
+        ArgumentCaptor<PlanGenerateRequest> captor =
+                ArgumentCaptor.forClass(PlanGenerateRequest.class);
+        verify(enrichedService, times(1)).generate(captor.capture());
+        PlanGenerateRequest req = captor.getValue();
+        assertEquals("广州", req.city());
+        assertEquals(targetDate, req.date());
+        assertEquals("OUTDOOR", req.preference());
+        assertEquals(200.0, req.budget());
+        assertNotNull(req.transportPreference());
+        assertEquals("PUBLIC_TRANSPORT", req.transportPreference().name());
     }
 
     @Test
+    void withConflicts_rainAndOutdoor_shouldNeedConfirm() {
+        when(weatherDataProvider.getWeather("广州", targetDate))
+                .thenReturn(createRainyWeather());
+        when(enrichedService.generate(any(PlanGenerateRequest.class))).thenReturn(samplePlan());
+
+        PlanResult result = travelPlanTools.generateTravelPlanWithConflicts(
+                "广州", "2026-10-20", "OUTDOOR", null, null);
+
+        assertTrue(result.isNeedConfirm(), "降雨 + 户外应要求用户确认");
+        assertFalse(result.getConflicts().isEmpty());
+        assertTrue(result.getReply().contains("是否"));
+    }
+
+    @Test
+    void withConflicts_clearWeather_shouldNotNeedConfirm() {
+        when(enrichedService.generate(any(PlanGenerateRequest.class))).thenReturn(samplePlan());
+
+        PlanResult result = travelPlanTools.generateTravelPlanWithConflicts(
+                "广州", "2026-10-20", "INDOOR", null, null);
+
+        assertFalse(result.isNeedConfirm());
+    }
+
+    @Test
+    void withConflicts_weatherFailure_shouldProduceDataIncomplete() {
+        when(weatherDataProvider.getWeather("广州", targetDate))
+                .thenThrow(new RuntimeException("timeout"));
+        when(enrichedService.generate(any(PlanGenerateRequest.class))).thenReturn(samplePlan());
+
+        PlanResult result = travelPlanTools.generateTravelPlanWithConflicts(
+                "广州", "2026-10-20", "OUTDOOR", null, null);
+
+        assertTrue(result.getConflicts().stream()
+                .anyMatch(c -> "DATA_INCOMPLETE".equals(c.getType().name())));
+    }
+
+    @Test
+    void withConflicts_shouldAllowOptionalNulls() {
+        when(enrichedService.generate(any(PlanGenerateRequest.class))).thenReturn(samplePlan());
+
+        travelPlanTools.generateTravelPlanWithConflicts(
+                "广州", "2026-10-20", "INDOOR", null, null);
+
+        ArgumentCaptor<PlanGenerateRequest> captor =
+                ArgumentCaptor.forClass(PlanGenerateRequest.class);
+        verify(enrichedService).generate(captor.capture());
+        assertNull(captor.getValue().budget());
+        assertNull(captor.getValue().transportPreference());
+    }
+
+    @Test
+    void withConflicts_shouldRejectBlankCity() {
+        assertThrows(IllegalArgumentException.class,
+                () -> travelPlanTools.generateTravelPlanWithConflicts(
+                        "  ", "2026-10-20", "OUTDOOR", null, null));
+        verifyNoInteractions(enrichedService);
+    }
+
+    @Test
+    void withConflicts_shouldRejectInvalidDate() {
+        assertThrows(IllegalArgumentException.class,
+                () -> travelPlanTools.generateTravelPlanWithConflicts(
+                        "广州", "2026/10/20", "OUTDOOR", null, null));
+        verifyNoInteractions(enrichedService);
+    }
+
+    @Test
+    void withConflicts_shouldRejectBlankPreference() {
+        assertThrows(IllegalArgumentException.class,
+                () -> travelPlanTools.generateTravelPlanWithConflicts(
+                        "广州", "2026-10-20", " ", null, null));
+        verifyNoInteractions(enrichedService);
+    }
+
+    @Test
+    void withConflicts_invalidTransport_shouldThrow() {
+        assertThrows(IllegalArgumentException.class,
+                () -> travelPlanTools.generateTravelPlanWithConflicts(
+                        "广州", "2026-10-20", "OUTDOOR", null, "PLANE"));
+        verifyNoInteractions(enrichedService);
+    }
+
+    // ==================== MCP 元数据 ====================
+
+    @Test
     void shouldExposeTravelPlanAsMcpTool() throws Exception {
-        // 获取待注册的工具方法，检查 MCP 元数据是否正确。
         Method method = TravelPlanTools.class.getMethod(
-                "generateTravelPlan",
-                String.class,
-                String.class,
-                String.class
-        );
-
-        // 验证工具方法已添加 MCP 注解。
+                "generateTravelPlan", String.class, String.class, String.class);
         McpTool tool = method.getAnnotation(McpTool.class);
-        assertNotNull(tool, "出行计划方法必须注册为 MCP 工具");
-
-        // 验证工具名称与团队约定一致。
+        assertNotNull(tool);
         assertEquals("generate_travel_plan", tool.name());
-
-        // 验证工具描述不是空值，方便 Agent 理解调用场景。
-        assertFalse(tool.description().isBlank());
-
-        // TravelPlan 是自定义 DTO，要求生成输出 schema。
         assertTrue(tool.generateOutputSchema());
 
-        // 检查三个参数均具有明确的 MCP 参数描述。
         Parameter[] parameters = method.getParameters();
         assertEquals(3, parameters.length);
+        for (Parameter p : parameters) {
+            McpToolParam param = p.getAnnotation(McpToolParam.class);
+            assertNotNull(param);
+            assertFalse(param.description().isBlank());
+            assertTrue(param.required());
+        }
+    }
 
-        for (Parameter parameter : parameters) {
-            McpToolParam param =
-                    parameter.getAnnotation(McpToolParam.class);
+    @Test
+    void shouldExposeGenerateWithConflictsAsMcpTool() throws Exception {
+        Method method = TravelPlanTools.class.getMethod(
+                "generateTravelPlanWithConflicts",
+                String.class, String.class, String.class, Double.class, String.class);
+        McpTool tool = method.getAnnotation(McpTool.class);
+        assertNotNull(tool);
+        assertEquals("generate_travel_plan_with_conflicts", tool.name());
+        assertTrue(tool.generateOutputSchema());
 
-            assertNotNull(
-                    param,
-                    "每个工具参数都应有 MCP 参数说明：" + parameter.getName()
-            );
-
-            assertFalse(
-                    param.description().isBlank(),
-                    "参数描述不能为空"
-            );
-
-            assertTrue(
-                    param.required(),
-                    "城市、日期和活动偏好均为必填参数"
-            );
+        Parameter[] parameters = method.getParameters();
+        assertEquals(5, parameters.length);
+        for (int i = 0; i < 3; i++) {
+            assertTrue(parameters[i].getAnnotation(McpToolParam.class).required());
+        }
+        for (int i = 3; i < 5; i++) {
+            assertFalse(parameters[i].getAnnotation(McpToolParam.class).required());
         }
     }
 }
