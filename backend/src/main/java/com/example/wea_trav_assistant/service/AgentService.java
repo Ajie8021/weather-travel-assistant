@@ -12,6 +12,7 @@ import com.example.wea_trav_assistant.exception.WeatherException;
 import com.example.wea_trav_assistant.service.ChatSessionStore.Session;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,31 +86,33 @@ public class AgentService {
         }
         Session session = sessions.get(sessionId);
         synchronized (session) {
-        String selectionPrompt = sessions.selectPendingCity(session, request.message());
-        if (selectionPrompt != null) {
-            sessions.addMessage(session, "user", request.message());
-            sessions.addMessage(session, "assistant", selectionPrompt);
-            return response(sessionId, selectionPrompt, "NEEDS_INPUT", List.of(), session);
-        }
-        if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
-            return new ChatResponse(sessionId,
-                    "智能体模型尚未配置。请在运行环境中设置 DASHSCOPE_API_KEY，并重启服务后再试。",
-                    "FAILED", List.of(), null, null);
-        }
+            String selectionPrompt = sessions.selectPendingCity(session, request.message());
+            if (selectionPrompt != null) {
+                sessions.addMessage(session, "user", request.message());
+                sessions.addMessage(session, "assistant", selectionPrompt);
+                return response(sessionId, selectionPrompt, "NEEDS_INPUT", List.of(), session);
+            }
+            if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
+                return new ChatResponse(sessionId,
+                        "智能体模型尚未配置。请在运行环境中设置 DASHSCOPE_API_KEY，并重启服务后再试。",
+                        "FAILED", List.of(), null, null);
+            }
 
-        sessions.addMessage(session, "user", request.message());
-        List<ChatResponse.ToolCallResult> calls = new ArrayList<>();
-        try {
-            List<Map<String, Object>> tools = availableTools();
-            String reply = runToolLoop(session, tools, calls);
-            sessions.addMessage(session, "assistant", reply);
-            String status = session.pendingCities().isEmpty() ? "COMPLETED" : "NEEDS_INPUT";
-            return response(sessionId, reply, status, calls, session);
-        } catch (Exception exception) {
-            String message = safeMessage(exception);
-            sessions.addMessage(session, "assistant", message);
-            return response(sessionId, message, "FAILED", calls, session);
-        }
+            sessions.addMessage(session, "user", request.message());
+            List<ChatResponse.ToolCallResult> calls = new ArrayList<>();
+            try {
+                List<Map<String, Object>> tools = availableTools();
+                String reply = runToolLoop(session, tools, calls);
+                sessions.addMessage(session, "assistant", reply);
+                String status = session.pendingCities().isEmpty() ? "COMPLETED" : "NEEDS_INPUT";
+                return response(sessionId, reply, status, calls, session);
+            } catch (Exception exception) {
+                org.slf4j.LoggerFactory.getLogger(AgentService.class)
+                        .error("agent chat failed, sessionId={}", sessionId, exception);
+                String message = safeMessage(exception);
+                sessions.addMessage(session, "assistant", message);
+                return response(sessionId, message, "FAILED", calls, session);
+            }
         }
     }
 
@@ -120,13 +123,28 @@ public class AgentService {
         messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT + "\n当前日期：" + LocalDate.now()));
         messages.addAll(session.history());
         for (int round = 0; round < properties.getMaxToolCalls(); round++) {
-            Map<String, Object> response = llmClient.post()
+            // 1. 先接 String，避免非 JSON 响应（octet-stream / SSE / 错误页）直接反序列化失败
+            ResponseEntity<String> raw = llmClient.post()
                     .uri(properties.getBaseUrl().replaceAll("/$", "") + "/chat/completions")
                     .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)          // 明确要 JSON，尽量避开流式
                     .header("Authorization", "Bearer " + properties.getApiKey())
                     .body(Map.of("model", properties.getModel(), "messages", messages,
-                            "tools", tools, "tool_choice", "auto", "temperature", 0.2))
-                    .retrieve().body(Map.class);
+                            "tools", tools, "tool_choice", "auto", "temperature", 0.2,
+                            "stream", false))                     // 显式关闭流式
+                    .retrieve().toEntity(String.class);
+
+            // 2. 记录原始响应，便于线上排查；不打印完整 Key
+            org.slf4j.LoggerFactory.getLogger(AgentService.class).info(
+                    "model response status={}, contentType={}, body={}",
+                    raw.getStatusCode(),
+                    raw.getHeaders().getContentType(),
+                    raw.getBody() == null ? "null"
+                            : raw.getBody().substring(0, Math.min(500, raw.getBody().length())));
+
+            // 3. 手动解析 JSON
+            Map<String, Object> response = mapper.readValue(raw.getBody(), Map.class);
+
             Map<String, Object> assistant = choiceMessage(response);
             Object toolCallsValue = assistant.get("tool_calls");
             if (!(toolCallsValue instanceof List<?> toolCalls) || toolCalls.isEmpty()) {
@@ -620,6 +638,13 @@ public class AgentService {
         String message = exception.getMessage();
         if (message == null || message.isBlank()) return "智能体服务暂时不可用，请稍后重试。";
         if (message.contains("401") || message.contains("403")) return "模型鉴权失败，请检查 DASHSCOPE_API_KEY 配置。";
+        // 技术性异常统一转为用户可读提示，原始堆栈只进日志
+        if (message.contains("Error while extracting response")
+                || message.contains("application/octet-stream")
+                || message.contains("Could not extract")
+                || message.contains("Unrecognized token")) {
+            return "模型返回格式异常，请稍后重试；若持续出现，请联系管理员检查模型服务配置。";
+        }
         if (message.length() > 240) return "天气或模型服务暂时不可用，请稍后重试。";
         return message;
     }
