@@ -66,8 +66,8 @@ public class AgentService {
         this.mcpClient = mcpClient;
         this.mapper = mapper;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(5_000);
-        requestFactory.setReadTimeout(45_000);
+        requestFactory.setConnectTimeout(15_000);
+        requestFactory.setReadTimeout(55_000);
         this.llmClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
