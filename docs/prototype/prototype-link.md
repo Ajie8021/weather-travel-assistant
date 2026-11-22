@@ -1,12 +1,7 @@
 # 慢游指南前台原型
 
-- 公开链接：待发布到墨刀
-- 访问密码：待发布后确认
-- 最后检查日期：公开访问尚未检查
+- 墨刀分享链接：[在线预览](https://modao.cc/proto/TuBrSJErtowd1dkJNlDugT/sharing?view_mode=read_only&screen=rbpVbh0sjHdWji5kI)
+- 访问密码：发布者未提供
+- 最后检查日期：2026-11-22。未携带登录凭据的请求收到 HTTP 200。画布能否匿名加载、是否提示口令及关键交互仍待浏览器验收。
 
 [可点击原型源文件](./prototype.html)可直接在浏览器打开。主线与页面状态见[前台交互说明](./interaction-rules.md)。
-
-在墨刀原型中使用「HTML 转墨刀」导入该文件，保留 HTML 组件交互。发布时将分享权限设置为「所有人」，用未登录窗口走通天气查询、生成计划、冲突确认与修改，再将确认后的链接、密码及检查日期填入本页。
-
-- [墨刀 HTML 导入方式](https://modao.cc/feature/html-editor/)
-- [墨刀公开分享方式](https://modao.cc/hc/articles/349)
