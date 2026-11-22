@@ -385,4 +385,4 @@ curl http://<your-domain>/health
 
 ---
 
-> 如有问题，请优先查阅 `docs/integration/` 下的文档，或在仓库 Issue 中提出。](https://api.deepseek.com/v1)
+> 如有问题，请优先查阅 `docs/integration/` 下的文档，或在仓库 Issue 中提出。
