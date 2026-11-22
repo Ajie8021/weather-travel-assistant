@@ -1,0 +1,144 @@
+erDiagram
+  app_user {
+    bigint id PK
+    string username
+    string password_hash
+    string role
+    datetime created_at
+  }
+  chat_session {
+    string id PK
+    bigint user_id FK
+    string device_id
+    json confirmed_city
+    json pending_cities
+    json state_snapshot
+    datetime last_active_at
+    int version
+  }
+  chat_message {
+    bigint id PK
+    string session_id FK
+    int sequence_no
+    string role
+    text content
+    json tool_calls
+    datetime created_at
+  }
+  weather_query {
+    bigint id PK
+    string session_id FK
+    string city
+    date forecast_date
+    decimal latitude
+    decimal longitude
+    json weather_snapshot
+    string source
+    datetime queried_at
+  }
+  travel_plan {
+    bigint id PK
+    string session_id FK
+    bigint user_id FK
+    string city
+    date travel_date
+    string preference
+    decimal budget
+    string transport_mode
+    int version
+    datetime created_at
+  }
+  attraction {
+    bigint id PK
+    string provider
+    string poi_id
+    string name
+    string city
+    string address
+    decimal longitude
+    decimal latitude
+    string category
+    decimal rating
+    string opening_hours
+    datetime expires_at
+  }
+  schedule_item {
+    bigint id PK
+    bigint plan_id FK
+    bigint attraction_id FK
+    string period
+    time start_time
+    time end_time
+    text activity
+    json attraction_snapshot
+  }
+  route_plan {
+    bigint id PK
+    bigint plan_id FK
+    bigint origin_id FK
+    bigint destination_id FK
+    string transport_mode
+    decimal distance_meters
+    int duration_seconds
+    json segments
+    string source
+    datetime queried_at
+  }
+  conflict_record {
+    bigint id PK
+    bigint plan_id FK
+    int plan_version
+    string type
+    string severity
+    text message
+    datetime detected_at
+  }
+  plan_revision {
+    bigint id PK
+    bigint plan_id FK
+    int from_version
+    string target_period
+    boolean confirmed
+    json before_snapshot
+    json after_snapshot
+    datetime created_at
+  }
+  attraction_favorite {
+    bigint id PK
+    bigint user_id FK
+    bigint attraction_id FK
+    datetime created_at
+  }
+  user_feedback {
+    bigint id PK
+    bigint user_id FK
+    text content
+    string status
+    datetime created_at
+  }
+  api_call_log {
+    bigint id PK
+    string session_id FK
+    string provider
+    string operation
+    int http_status
+    int duration_ms
+    string error_code
+    datetime created_at
+  }
+  app_user |o--o{ chat_session : "user_id"
+  chat_session ||--o{ chat_message : "session_id"
+  chat_session |o--o{ weather_query : "session_id"
+  chat_session |o--o{ travel_plan : "session_id"
+  app_user |o--o{ travel_plan : "user_id"
+  travel_plan ||--o{ schedule_item : "plan_id"
+  attraction |o--o{ schedule_item : "attraction_id"
+  travel_plan |o--o{ route_plan : "plan_id"
+  attraction ||--o{ route_plan : "origin_id"
+  attraction ||--o{ route_plan : "destination_id"
+  travel_plan ||--o{ conflict_record : "plan_id"
+  travel_plan ||--o{ plan_revision : "plan_id"
+  app_user ||--o{ attraction_favorite : "user_id"
+  attraction ||--o{ attraction_favorite : "attraction_id"
+  app_user |o--o{ user_feedback : "user_id"
+  chat_session |o--o{ api_call_log : "session_id"

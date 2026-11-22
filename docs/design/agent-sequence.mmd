@@ -1,0 +1,32 @@
+sequenceDiagram
+ actor U as 用户或硬件
+ participant C as ChatController
+ participant A as AgentService
+ participant S as ChatSessionStore
+ participant M as DashScope
+ participant T as 本地服务或MCP工具
+ U->>C: 查询天气(sessionId,message)
+ C->>A: chat(request)
+ A->>S: 获取会话、候选和历史
+ A->>M: 消息与允许的工具定义
+ M-->>A: 工具调用请求
+ A->>T: search_city/get_weather
+ T-->>A: 真实天气结果
+ A->>S: 保存确认地点和天气
+ A->>M: 回传工具结果
+ M-->>A: 文本回复
+ A-->>U: ChatResponse与工具记录
+ U->>C: 基于天气生成一日游(同一sessionId)
+ C->>A: chat(request)
+ A->>T: generate_travel_plan
+ T-->>A: TravelPlan
+ A->>S: 保存当前计划
+ A-->>U: 行程与回复
+ U->>C: 下午改为室内(同一sessionId)
+ C->>A: chat(request)
+ A->>S: 读取上一轮计划
+ A->>T: modify_travel_plan
+ T-->>A: 局部修改后的基础计划
+ A->>S: 更新当前计划
+ A-->>U: 新行程与工具记录
+ Note over A,T: 当前基础计划工具路径；冲突确认统一编排为后续集成设计
