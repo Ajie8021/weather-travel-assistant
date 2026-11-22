@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>慢游指南 · 前台原型</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f7f2;color:#182f29;font:16px/1.65 "Microsoft YaHei",sans-serif}header,main,footer{padding:20px max(24px,calc((100% - 1100px)/2))}header{background:#fff;display:flex;align-items:center;flex-wrap:wrap;gap:12px;box-shadow:0 1px 0 #dae5de}header strong{font-size:22px;margin-right:auto}h1{font-size:clamp(30px,5vw,54px);line-height:1.25;margin:8px 0 14px}h2{margin:0 0 10px}p{margin:8px 0 16px}small,footer,.muted{color:#49625a}.hero{background:linear-gradient(115deg,#103d34,#246656);color:#fff;border-radius:26px;padding:clamp(24px,6vw,72px);margin-bottom:20px}.hero p{max-width:560px;color:#e0eee7}.hero button{background:#f3d296;color:#263021}.card{background:#fff;border:1px solid #dbe5dd;border-radius:18px;padding:22px;margin:14px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.grid .card{margin:0}.row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:grid;gap:4px}button,input,select{font:inherit}button{border:0;border-radius:9px;background:#1c5a48;color:white;padding:9px 15px;cursor:pointer}button.secondary,nav button{background:#e6efe9;color:#164d3e}nav{display:flex;gap:5px;flex-wrap:wrap}nav button[aria-current=page]{background:#1c5a48;color:white}button:disabled{opacity:.6;cursor:wait}input,select{max-width:100%;background:white;border:1px solid #9bb2a7;padding:8px;border-radius:8px;color:#182f29}.warn{border-left:4px solid #b67819;background:#fff3d8;padding:12px;color:#634309}.error{color:#a22124}.pill{display:inline-block;padding:3px 10px;border-radius:20px;background:#e6efe9;color:#164d3e}dialog{max-width:min(540px,95vw);border:1px solid #d5e3d9;border-radius:20px;padding:26px;color:#182f29}dialog::backdrop{background:#112d27a8}.bubble{padding:10px 14px;margin:8px 0;border-radius:10px;background:#edf4ef;white-space:pre-wrap}.bubble.user{background:#1c5a48;color:white}.flow{padding:16px;border-left:3px solid #28725a;background:#fff;margin:12px 0}footer{font-size:14px}
+</style></head><body>
+<header><strong>慢游指南</strong><nav aria-label="前台导航" id="nav"></nav></header>
+<main id="main"></main><footer>前台交互原型 · 广州示例数据 · 交互在浏览器内演示</footer>
+<dialog id="risk" aria-labelledby="risk-title"><h2 id="risk-title">下午户外活动遇到降雨风险</h2><p class="warn">广州示例预报的当日降水概率为 80%。下午安排了沙面步行，建议换为室内活动。</p><p>确认后将进入下午活动修改页。上午与晚间安排会保留。</p><div class="row"><button class="secondary" data-action="cancel">取消，保留行程</button><button data-action="confirm">确认调整下午</button></div></dialog>
+<script>
+const labels={home:'首页',weather:'天气查询',places:'景点搜索',detail:'景点详情',routes:'路线比较',plan:'一日游计划',chat:'聊天助手',edit:'修改下午',saved:'历史与收藏',error:'异常提示',map:'前台页面总览'};
+const navPages=['home','weather','places','routes','plan','chat','saved'];
+const main=document.querySelector('#main'), risk=document.querySelector('#risk');
+const demoDate='2026-11-23';
+const places=[{name:'永庆坊',category:'街区',address:'荔湾区恩宁路',description:'从骑楼街巷开始，适合慢步游览。'},{name:'沙面',category:'户外步行',address:'荔湾区沙面岛',description:'沿街欣赏历史建筑，降雨时可替换为室内活动。'},{name:'广东省博物馆',category:'室内展览',address:'天河区珠江东路',description:'出发前请查看官方预约与开放信息。'}];
+const original=['永庆坊街区漫步','沙面户外步行','荔湾晚餐'];
+const state={city:'广州',date:demoDate,weather:false,query:'',place:0,found:false,compared:false,origin:0,destination:2,preference:'OUTDOOR',budget:'',plan:null,saved:null,favorites:new Set(),tab:'history',messages:[],returnPage:'weather',review:false};
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const button=(label,action,secondary=false)=>'<button type="button" class="'+(secondary?'secondary':'')+'" data-action="'+action+'">'+label+'</button>';
+const link=(label,page)=>button(label,'go-'+page,true);
+const heading=(title,body)=>'<h1>'+title+'</h1><p class="muted">'+body+'</p>';
+const selected=(value,current)=>value===current?' selected':'';
+const status='<p role="status" id="status"></p>';
+const sample=link('查看服务异常示例','error');
+const cityDate=()=>'<label>城市<input name="city" value="'+escapeHtml(state.city)+'" required></label><label>日期<input type="date" name="date" value="'+state.date+'" required></label>';
+const spotOptions=current=>places.map((spot,i)=>'<option value="'+i+'"'+selected(i,current)+'>'+spot.name+'</option>').join('');
+const schedule=plan=>'<div class="grid">'+plan.activities.map((a,i)=>'<article class="card"><small>'+['09:30 · 上午','14:00 · 下午','18:30 · 晚间'][i]+'</small><h2>'+a+'</h2></article>').join('')+'</div>';
+const placeCard=(p,i)=>'<article class="card"><small>'+p.category+'</small><h2>'+p.name+'</h2><p>'+p.address+'</p>'+button('查看详情','spot-'+i)+'</article>';
+const weatherResult=()=>'<section class="card"><span class="pill">示例预报</span><h2>'+escapeHtml(state.city)+' · '+state.date+'</h2><div class="grid"><div><small>最低 / 最高</small><h2>19 / 25 °C</h2></div><div><small>降水概率</small><h2>80%</h2></div><div><small>风速</small><h2>14 km/h</h2></div></div><p class="warn">有降雨风险，建议为户外活动准备室内备选。</p>'+button('用此天气生成行程','go-plan')+'</section>';
+const pages={
+home:()=>'<section class="hero"><h1>下一站，慢慢游。</h1><p>先看目的地天气，再选景点和交通方式。遇到天气冲突时，可以只调整受影响的活动。</p>'+button('查询出行天气','go-weather')+'</section><div class="grid">'+[['探索景点','搜索广州景点，查看详情与收藏。','places'],['比较交通','查看同一对起终点的交通方案。','routes'],['问聊天助手','在同一会话继续追问天气与行程。','chat']].map(([title,desc,page])=>'<article class="card"><h2>'+title+'</h2><p>'+desc+'</p>'+link(title,page)+'</article>').join('')+'</div>',
+weather:()=>heading('出行天气','按目的地当地日期查看预报。')+'<form class="card" data-form="weather"><div class="row">'+cityDate()+'<button>查询天气</button></div>'+status+sample+'</form>'+(state.weather?weatherResult():''),
+places:()=>heading('景点搜索','浏览广州示例景点，按名称或类别过滤。')+'<form class="card" data-form="places"><div class="row"><label>景点关键词<input name="keyword" value="'+escapeHtml(state.query)+'" placeholder="例如：博物馆"></label><button>搜索</button></div>'+status+sample+'</form><div class="grid">'+(places.map((p,i)=>[p,i]).filter(([p])=>!state.found||(p.name+p.category+p.address).includes(state.query)).map(([p,i])=>placeCard(p,i)).join('')||'<p class="card">没有匹配的景点。请换一个关键词，或清空后重新搜索。</p>')+'</div>',
+detail:()=>{const p=places[state.place];return heading(p.name,p.address)+'<article class="card"><span class="pill">'+p.category+'</span><p>'+p.description+'</p><p>评分、开放时间：暂无数据</p><div class="row">'+button(state.favorites.has(state.place)?'取消收藏':'收藏景点','favorite')+button('设为路线终点','to-route',true)+link('返回搜索','places')+'</div></article>';},
+routes:()=>heading('路线比较','比较同一起点与终点的步行、公交和驾车方案。')+'<form class="card" data-form="routes"><div class="row"><label>起点<select name="origin">'+spotOptions(state.origin)+'</select></label><label>终点<select name="destination">'+spotOptions(state.destination)+'</select></label><button>比较路线</button></div>'+status+sample+'</form>'+(state.compared?'<section><p>以下为交互示例，实际时间与距离以路线服务为准。</p><div class="grid">'+[['步行','约 8.5 km','约 110 分钟'],['公交','约 10 km','约 55 分钟'],['驾车','约 11 km','约 32 分钟']].map(([m,d,t])=>'<article class="card"><h2>'+m+'</h2><p>'+d+' · '+t+'</p></article>').join('')+'</div></section>':''),
+plan:()=>heading('一日游计划','按天气与出行偏好安排上午、下午和晚间。')+'<form class="card" data-form="plan"><div class="row">'+cityDate()+'<label>活动偏好<select name="preference"><option value="OUTDOOR"'+selected('OUTDOOR',state.preference)+'>户外</option><option value="INDOOR"'+selected('INDOOR',state.preference)+'>室内</option></select></label><label>预算上限（元，选填）<input type="number" name="budget" min="0" max="999999" value="'+state.budget+'"></label><button>生成计划</button></div>'+status+sample+'</form>'+(state.plan?'<section class="card"><h2>'+escapeHtml(state.plan.city)+' · '+state.plan.date+'</h2>'+schedule(state.plan)+(state.plan.conflict?'<p class="warn">下午户外活动有降雨风险。'+button('查看冲突与调整','open-risk')+'</p>':'<p class="pill">'+(state.plan.changed?'已重新检查：下午已安排室内活动':'下午已安排室内活动')+'</p>')+'<div class="row">'+button('保存至历史','save',true)+link('查看历史与收藏','saved')+'</div><p id="save-status" role="status"></p></section>':''),
+chat:()=>heading('聊天助手','在同一会话中查询天气、生成计划和调整活动。')+'<section class="card"><div role="log" aria-label="对话记录">'+(state.messages.map(([role,msg])=>'<p class="bubble '+role+'"><small style="color:inherit">'+(role==='user'?'你':'慢游助手')+'</small><br>'+escapeHtml(msg)+'</p>').join('')||'<p class="muted">可以先问：明天广州天气怎么样？</p>')+'</div>'+(state.messages.length?'<div class="row">'+link('查看天气页','weather')+link('查看行程页','plan')+'</div>':'')+'<form data-form="chat"><div class="row"><label>消息<input name="message" maxlength="2000" placeholder="输入广州出行问题" required></label><button>发送</button></div>'+status+sample+'</form></section>',
+edit:()=>heading('修改下午活动','仅替换当前行程的下午活动。')+(state.plan&&state.review?'<form class="card" data-form="edit"><p>原安排：'+state.plan.activities[1]+'</p><label>替换活动<select name="replacement"><option>广东省博物馆室内参观</option><option>室内咖啡馆休息</option></select></label><p class="muted">上午与晚间保留。提交后重新检查示例降雨冲突。</p><div class="row"><button>应用修改</button>'+button('取消修改','abort',true)+'</div>'+status+'</form>':'<section class="card"><p>请先生成行程，并在冲突提示中确认调整。</p>'+link('返回一日游计划','plan')+'</section>'),
+saved:()=>heading('历史与收藏','查看本次演示中主动保存的内容。')+'<section class="card"><div class="row">'+button('历史行程','tab-history',state.tab!=='history')+button('景点收藏','tab-favorites',state.tab!=='favorites')+'</div></section>'+(state.tab==='history'?(state.saved?'<section class="card"><h2>'+escapeHtml(state.saved.city)+' · '+state.saved.date+'</h2>'+schedule(state.saved)+'</section>':'<section class="card"><p>还没有保存的行程。</p>'+link('前往计划页','plan')+'</section>'):'<div class="grid">'+([...state.favorites].map(i=>placeCard(places[i],i)).join('')||'<section class="card"><p>还没有收藏景点。</p>'+link('搜索景点','places')+'</section>')+'</div>'),
+error:()=>heading('服务暂时不可用','演示天气、景点、路线或助手服务超时后的页面。')+'<section class="card"><p class="warn">本次请求未返回可用结果，你的输入和已有行程已保留。</p><div class="row">'+button('返回并重试','retry')+link('返回首页','home')+'</div></section>',
+map:()=>heading('前台页面总览','慢游指南 · 李蔓淇 · 第二次团队作业')+'<div class="flow"><h2>行程主线</h2><p>首页 → 天气查询 → 一日游计划 → 天气冲突确认弹窗 → 修改下午 → 更新后的计划 → 历史行程</p></div><div class="flow"><h2>景点与路线</h2><p>首页 → 景点搜索 → 景点详情 → 路线比较 / 景点收藏</p></div><div class="flow"><h2>聊天与反馈</h2><p>首页 → 聊天助手 → 天气结果 / 行程结果<br>请求入口 → 加载 → 成功 / 无结果 / 输入错误 / 服务异常 → 返回重试</p></div><p>取消冲突确认或放弃编辑 → 保留原行程。</p>'
+};
+let page='home';
+function render(){
+  document.querySelector('#nav').innerHTML=navPages.map(key=>'<button data-action="go-'+key+'"'+(page===key?' aria-current="page"':'')+'>'+labels[key]+'</button>').join('');
+  main.innerHTML=pages[page]();
+}
+function go(next){page=next;render();window.scrollTo(0,0);}
+function makePlan(){
+  const indoor=state.preference==='INDOOR';
+  state.plan={city:state.city,date:state.date,activities:[original[0],indoor?'广东省博物馆室内参观':original[1],original[2]],conflict:!indoor,changed:false};
+  state.review=false;
+}
+document.addEventListener('click',event=>{
+  const action=event.target.closest('[data-action]')?.dataset.action;
+  if(!action)return;
+  if(action.startsWith('go-')){
+    const next=action.slice(3);
+    if(next==='error'){
+      state.returnPage=page;
+      const form=main.querySelector('form');
+      if(form){
+        const data=new FormData(form);
+        for(const key of ['city','date','budget','preference'])if(data.has(key))state[key]=data.get(key);
+        if(data.has('keyword'))state.query=data.get('keyword');
+        if(data.has('origin')){state.origin=Number(data.get('origin'));state.destination=Number(data.get('destination'));}
+        state.draft=data.get('message')||'';
+      }
+    }
+    go(next);return;
+  }
+  if(action.startsWith('spot-')){state.place=Number(action.slice(5));go('detail');return;}
+  if(action.startsWith('tab-')){state.tab=action.slice(4);render();return;}
+  switch(action){
+    case 'favorite':
+      if(state.favorites.has(state.place))state.favorites.delete(state.place);
+      else state.favorites.add(state.place);
+      render();break;
+    case 'to-route':state.destination=state.place;state.compared=false;go('routes');break;
+    case 'open-risk':if(!risk.open)risk.showModal();break;
+    case 'cancel':risk.close();break;
+    case 'confirm':state.review=true;risk.close();go('edit');break;
+    case 'abort':state.review=false;go('plan');break;
+    case 'retry':
+      go(state.returnPage);
+      if(page==='chat'&&state.draft)main.querySelector('[name=message]').value=state.draft;
+      main.querySelector('input,select')?.focus();break;
+    case 'save':
+      state.saved={...state.plan,activities:[...state.plan.activities]};
+      document.querySelector('#save-status').textContent='已保存，可在历史行程查看。';
+  }
+});
+document.addEventListener('submit',event=>{
+  event.preventDefault();
+  const form=event.target, kind=form.dataset.form, data=new FormData(form), output=form.querySelector('#status');
+  const fail=message=>{output.className='error';output.textContent=message;};
+  if(data.has('city')){
+    const city=data.get('city').trim();
+    if(!city){fail('请输入城市名称。');return;}
+    if(city!=='广州'){fail('本原型仅提供广州示例，请输入广州。');return;}
+    if(data.get('date')!==demoDate){fail('本原型仅提供 2026-11-23 的示例预报。');return;}
+    state.city=city;state.date=data.get('date');
+  }
+  if(kind==='routes'&&data.get('origin')===data.get('destination')){fail('起点和终点需要不同。');return;}
+  if(kind==='chat'&&!data.get('message').trim()){fail('请输入要发送的消息。');return;}
+  if(kind==='edit'&&(!state.review||!state.plan))return;
+  const submit=form.querySelector('button:not([type=button])');
+  submit.disabled=true;output.className='';output.textContent='正在处理…';
+  setTimeout(()=>{
+    if(!form.isConnected)return;
+    switch(kind){
+      case 'weather':state.weather=true;break;
+      case 'places':state.query=data.get('keyword').trim();state.found=true;break;
+      case 'routes':state.origin=Number(data.get('origin'));state.destination=Number(data.get('destination'));state.compared=true;break;
+      case 'plan':state.preference=data.get('preference');state.budget=data.get('budget');makePlan();break;
+      case 'edit':
+        state.plan.activities[1]=data.get('replacement');state.plan.conflict=false;state.plan.changed=true;state.review=false;go('plan');return;
+      case 'chat':{
+        const message=data.get('message').trim();let reply='可以问广州天气，或让我生成一日游计划。';
+        if(/改|调整/.test(message))reply=state.plan?'请打开行程页，先查看天气冲突，再确认调整下午活动。':'请先生成一日游计划。';
+        else if(/行程|计划|一日游/.test(message)){makePlan();reply='已生成广州一日游示例。请进入行程页查看天气冲突。';}
+        else if(/天气|降雨/.test(message)){state.weather=true;reply='广州示例预报为 19 至 25 °C，当日降水概率 80%。';}
+        state.messages.push(['user',message],['assistant',reply]);break;
+      }
+    }
+    render();
+    if(kind==='plan'&&state.plan.conflict)risk.showModal();
+  },420);
+});
+const snapshot=new URLSearchParams(location.search).get('shot');
+if(snapshot&&Object.hasOwn(pages,snapshot)){
+  state.weather=true;state.compared=true;makePlan();state.review=snapshot==='edit';
+  if(snapshot==='chat')state.messages=[['user','明天广州天气怎么样？'],['assistant','广州示例预报为 19 至 25 °C，当日降水概率 80%。']];
+  if(snapshot==='saved')state.saved={...state.plan,activities:[...state.plan.activities]};
+  go(snapshot);
+  if(new URLSearchParams(location.search).has('risk'))risk.showModal();
+}else render();
+</script></body></html>
