@@ -1,0 +1,133 @@
+<mxfile host="app.diagrams.net" modified="2026-11-22T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="plan-generate-activity" name="生成一日行程活动图">
+    <mxGraphModel dx="1300" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1650" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;fontColor=#ffffff;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="600" y="40" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="input" value="输入城市、日期、偏好、预算" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="130" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="parse-city" value="解析城市" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="240" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-city" value="城市是否唯一？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="350" width="160" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="city-ambiguous" value="提示城市歧义，要求用户补充地区" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="910" y="365" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-weather" value="查询指定日期天气" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="510" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-weather" value="天气数据是否完整？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="620" width="160" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="weather-missing" value="提示天气数据缺失，无法判断" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="910" y="635" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-attractions" value="查询可用景点" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="780" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-attractions" value="是否存在可用景点？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="890" width="160" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="attractions-empty" value="提示未找到可用景点，请调整条件" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="910" y="905" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="generate-schedule" value="生成早、午、晚日程" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1050" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="detect-conflicts" value="检测天气冲突" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1160" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-conflict" value="是否检测到天气冲突？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="1270" width="160" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="show-conflict" value="展示计划及冲突提示" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="910" y="1285" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="show-plan" value="展示一日行程计划" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1420" width="280" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="end-success" value="结束（成功）" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#2d6a4f;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="580" y="1530" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end-pending" value="结束（等待确认）" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="980" y="1420" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="end-exception" value="结束（异常）" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="770" width="140" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-start-input" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="start" target="input">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-input-parse" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="input" target="parse-city">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-parse-city-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="parse-city" target="decision-city">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-city-unique" value="唯一" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;" edge="1" parent="1" source="decision-city" target="query-weather">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-city-ambiguous" value="歧义" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#b85450;" edge="1" parent="1" source="decision-city" target="city-ambiguous">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-query-weather-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="query-weather" target="decision-weather">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-weather-complete" value="完整" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;" edge="1" parent="1" source="decision-weather" target="query-attractions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-weather-missing" value="缺失" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#b85450;" edge="1" parent="1" source="decision-weather" target="weather-missing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-query-attractions-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="query-attractions" target="decision-attractions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-attractions-present" value="有" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;" edge="1" parent="1" source="decision-attractions" target="generate-schedule">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-attractions-empty" value="为空" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#b85450;" edge="1" parent="1" source="decision-attractions" target="attractions-empty">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-generate-detect" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="generate-schedule" target="detect-conflicts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-detect-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="detect-conflicts" target="decision-conflict">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-no-conflict" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;" edge="1" parent="1" source="decision-conflict" target="show-plan">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-has-conflict" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#d79b00;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#d79b00;" edge="1" parent="1" source="decision-conflict" target="show-conflict">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-show-plan-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="show-plan" target="end-success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-show-conflict-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="show-conflict" target="end-pending">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-city-error-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;" edge="1" parent="1" source="city-ambiguous" target="end-exception">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-weather-error-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;" edge="1" parent="1" source="weather-missing" target="end-exception">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-attractions-error-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;" edge="1" parent="1" source="attractions-empty" target="end-exception">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

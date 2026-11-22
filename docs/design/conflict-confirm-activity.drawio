@@ -1,0 +1,106 @@
+<mxfile host="app.diagrams.net" modified="2026-11-22T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="conflict-confirm-activity" name="天气冲突确认活动图">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;fontColor=#ffffff;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="30" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="detect-initial" value="检测天气风险" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="120" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="risk-decision" value="是否存在天气风险？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="230" width="160" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="no-risk" value="展示无风险提示" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="900" y="240" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="end-no-risk" value="结束（无需确认）" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#2d6a4f;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="960" y="360" width="160" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="show-risk" value="展示风险及调整建议" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="400" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="user-decision" value="用户确认还是取消？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="510" width="160" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="keep-original" value="保留原计划不变" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="900" y="525" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="end-cancelled" value="结束（未修改）" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="960" y="645" width="160" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="modify-target" value="仅修改目标时段" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="680" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="detect-again" value="再次检测天气冲突" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="790" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="recheck-decision" value="再次检测是否仍有冲突？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="560" y="900" width="160" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="show-updated" value="展示修改后计划" style="rounded=1;whiteSpace=wrap;html=1;arcSize=18;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1060" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="end-success" value="结束（修改完成）" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#2d6a4f;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="570" y="1170" width="140" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-start-detect" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="start" target="detect-initial">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-detect-risk-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="detect-initial" target="risk-decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-risk-no" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;" edge="1" parent="1" source="risk-decision" target="no-risk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-no-risk-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="no-risk" target="end-no-risk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-risk-yes" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#d79b00;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#d79b00;" edge="1" parent="1" source="risk-decision" target="show-risk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-show-risk-user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="show-risk" target="user-decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-user-cancel" value="取消" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=2;labelBackgroundColor=#ffffff;fontColor=#b85450;fontStyle=1;" edge="1" parent="1" source="user-decision" target="keep-original">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cancel-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;" edge="1" parent="1" source="keep-original" target="end-cancelled">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-user-confirm" value="确认调整" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=2;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;fontStyle=1;" edge="1" parent="1" source="user-decision" target="modify-target">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-modify-detect" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="modify-target" target="detect-again">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-detect-recheck" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="detect-again" target="recheck-decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-recheck-no" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#2d6a4f;strokeWidth=1.5;labelBackgroundColor=#ffffff;fontColor=#2d6a4f;" edge="1" parent="1" source="recheck-decision" target="show-updated">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-updated-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#495057;strokeWidth=1.5;" edge="1" parent="1" source="show-updated" target="end-success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-recheck-yes-loop" value="是，仍有冲突" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#d79b00;strokeWidth=2;dashed=1;labelBackgroundColor=#ffffff;fontColor=#d79b00;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="recheck-decision" target="show-risk">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="955" />
+              <mxPoint x="430" y="435" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
