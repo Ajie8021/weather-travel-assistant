@@ -1,0 +1,515 @@
+<!doctype html><html lang="zh-CN"><meta charset="UTF-8"><title>慢游指南成员一设计图册</title><style>body{font:18px 'Microsoft YaHei',sans-serif;margin:32px;color:#18343c}section{margin:40px 0;padding:20px;border:1px solid #bbb;overflow:auto}button{font-size:18px;padding:10px}svg{max-width:none!important}pre.source{white-space:pre-wrap;font-size:15px} @media print{button{display:none}section{break-before:page;border:0}}</style><h1>慢游指南成员一设计图册</h1><p>首次打开需联网加载Mermaid。每张图独立显示，点击按钮可下载矢量SVG，适合成员五放大排版。若未显示图，请展开源码在支持Mermaid的工具渲染。</p><section><h2>agent-sequence</h2><button onclick="save(0)">下载本图 SVG</button><div class="mermaid" id="g0">sequenceDiagram
+ actor U as 用户或硬件
+ participant C as ChatController
+ participant A as AgentService
+ participant S as ChatSessionStore
+ participant M as DashScope
+ participant T as 本地服务或MCP工具
+ U-&gt;&gt;C: 查询天气(sessionId,message)
+ C-&gt;&gt;A: chat(request)
+ A-&gt;&gt;S: 获取会话、候选和历史
+ A-&gt;&gt;M: 消息与允许的工具定义
+ M--&gt;&gt;A: 工具调用请求
+ A-&gt;&gt;T: search_city/get_weather
+ T--&gt;&gt;A: 真实天气结果
+ A-&gt;&gt;S: 保存确认地点和天气
+ A-&gt;&gt;M: 回传工具结果
+ M--&gt;&gt;A: 文本回复
+ A--&gt;&gt;U: ChatResponse与工具记录
+ U-&gt;&gt;C: 基于天气生成一日游(同一sessionId)
+ C-&gt;&gt;A: chat(request)
+ A-&gt;&gt;T: generate_travel_plan
+ T--&gt;&gt;A: TravelPlan
+ A-&gt;&gt;S: 保存当前计划
+ A--&gt;&gt;U: 行程与回复
+ U-&gt;&gt;C: 下午改为室内(同一sessionId)
+ C-&gt;&gt;A: chat(request)
+ A-&gt;&gt;S: 读取上一轮计划
+ A-&gt;&gt;T: modify_travel_plan
+ T--&gt;&gt;A: 局部修改后的基础计划
+ A-&gt;&gt;S: 更新当前计划
+ A--&gt;&gt;U: 新行程与工具记录
+ Note over A,T: 当前基础计划工具路径；冲突确认统一编排为后续集成设计
+</div><details><summary>可编辑图源</summary><pre class="source">sequenceDiagram
+ actor U as 用户或硬件
+ participant C as ChatController
+ participant A as AgentService
+ participant S as ChatSessionStore
+ participant M as DashScope
+ participant T as 本地服务或MCP工具
+ U-&gt;&gt;C: 查询天气(sessionId,message)
+ C-&gt;&gt;A: chat(request)
+ A-&gt;&gt;S: 获取会话、候选和历史
+ A-&gt;&gt;M: 消息与允许的工具定义
+ M--&gt;&gt;A: 工具调用请求
+ A-&gt;&gt;T: search_city/get_weather
+ T--&gt;&gt;A: 真实天气结果
+ A-&gt;&gt;S: 保存确认地点和天气
+ A-&gt;&gt;M: 回传工具结果
+ M--&gt;&gt;A: 文本回复
+ A--&gt;&gt;U: ChatResponse与工具记录
+ U-&gt;&gt;C: 基于天气生成一日游(同一sessionId)
+ C-&gt;&gt;A: chat(request)
+ A-&gt;&gt;T: generate_travel_plan
+ T--&gt;&gt;A: TravelPlan
+ A-&gt;&gt;S: 保存当前计划
+ A--&gt;&gt;U: 行程与回复
+ U-&gt;&gt;C: 下午改为室内(同一sessionId)
+ C-&gt;&gt;A: chat(request)
+ A-&gt;&gt;S: 读取上一轮计划
+ A-&gt;&gt;T: modify_travel_plan
+ T--&gt;&gt;A: 局部修改后的基础计划
+ A-&gt;&gt;S: 更新当前计划
+ A--&gt;&gt;U: 新行程与工具记录
+ Note over A,T: 当前基础计划工具路径；冲突确认统一编排为后续集成设计
+</pre></details></section><section><h2>backend-class-diagram</h2><button onclick="save(1)">下载本图 SVG</button><div class="mermaid" id="g1">classDiagram
+ class WeatherController["天气控制器 WeatherController"]
+ class WeatherService["天气服务 WeatherService"]
+ class OpenMeteoClient["天气客户端 OpenMeteoClient"]
+ class AgentService["智能体服务 AgentService"]
+ class ChatSessionStore["内存会话 ChatSessionStore"]
+ class TravelPlanService["基础行程 TravelPlanService"]
+ class PoiService["景点服务 PoiService"]
+ class RouteService["路线服务 RouteService"]
+ class AmapClient["高德客户端 AmapClient"]
+ class EnrichedTravelPlanService["真实景点行程 EnrichedTravelPlanService"]
+ class WeatherConflictService["天气冲突 WeatherConflictService"]
+ class PlanModifyService["行程修改 PlanModifyService"]
+ class VoiceChatService["语音服务 VoiceChatService"]
+ WeatherController --&gt; WeatherService : 查询
+ WeatherService --&gt; OpenMeteoClient : 请求预报
+ AgentService --&gt; ChatSessionStore : 保存状态
+ AgentService --&gt; WeatherService : 查天气
+ AgentService --&gt; TravelPlanService : 生成或局部修改
+ AgentService --&gt; PoiService : 搜索景点
+ AgentService --&gt; RouteService : 规划交通
+ PoiService --&gt; AmapClient : 请求POI
+ RouteService --&gt; PoiService : 读取起终点
+ RouteService --&gt; AmapClient : 请求路线
+ EnrichedTravelPlanService --&gt; PoiService : 选择景点
+ EnrichedTravelPlanService --&gt; RouteService : 衔接路线
+ VoiceChatService --&gt; AgentService : 复用对话
+ note for WeatherConflictService "已有独立规则服务；当前Agent生成路径未统一接入"
+ note for PlanModifyService "真实景点计划修改服务；与基础计划修改路径区分"
+</div><details><summary>可编辑图源</summary><pre class="source">classDiagram
+ class WeatherController["天气控制器 WeatherController"]
+ class WeatherService["天气服务 WeatherService"]
+ class OpenMeteoClient["天气客户端 OpenMeteoClient"]
+ class AgentService["智能体服务 AgentService"]
+ class ChatSessionStore["内存会话 ChatSessionStore"]
+ class TravelPlanService["基础行程 TravelPlanService"]
+ class PoiService["景点服务 PoiService"]
+ class RouteService["路线服务 RouteService"]
+ class AmapClient["高德客户端 AmapClient"]
+ class EnrichedTravelPlanService["真实景点行程 EnrichedTravelPlanService"]
+ class WeatherConflictService["天气冲突 WeatherConflictService"]
+ class PlanModifyService["行程修改 PlanModifyService"]
+ class VoiceChatService["语音服务 VoiceChatService"]
+ WeatherController --&gt; WeatherService : 查询
+ WeatherService --&gt; OpenMeteoClient : 请求预报
+ AgentService --&gt; ChatSessionStore : 保存状态
+ AgentService --&gt; WeatherService : 查天气
+ AgentService --&gt; TravelPlanService : 生成或局部修改
+ AgentService --&gt; PoiService : 搜索景点
+ AgentService --&gt; RouteService : 规划交通
+ PoiService --&gt; AmapClient : 请求POI
+ RouteService --&gt; PoiService : 读取起终点
+ RouteService --&gt; AmapClient : 请求路线
+ EnrichedTravelPlanService --&gt; PoiService : 选择景点
+ EnrichedTravelPlanService --&gt; RouteService : 衔接路线
+ VoiceChatService --&gt; AgentService : 复用对话
+ note for WeatherConflictService "已有独立规则服务；当前Agent生成路径未统一接入"
+ note for PlanModifyService "真实景点计划修改服务；与基础计划修改路径区分"
+</pre></details></section><section><h2>backend-module</h2><button onclick="save(2)">下载本图 SVG</button><div class="mermaid" id="g2">flowchart LR
+ APP[后端系统] --&gt; C[控制器层]
+ APP --&gt; B[业务层]
+ APP --&gt; I[外部服务适配层]
+ APP --&gt; P[持久化层：计划新增]
+ C --&gt; CHAT[聊天与语音入口]
+ C --&gt; REST[天气、景点、路线、计划入口]
+ B --&gt; WEATHER[天气与城市确认]
+ B --&gt; POI[景点查询]
+ B --&gt; ROUTE[路线规划]
+ B --&gt; PLAN[基础计划与真实景点计划]
+ B --&gt; RISK[天气冲突与局部修改]
+ B --&gt; AGENT[工具编排与内存会话]
+ I --&gt; CLIENT[OpenMeteoClient、AmapClient、McpToolClient]
+ P --&gt; REPO[实体、Repository、事务]
+</div><details><summary>可编辑图源</summary><pre class="source">flowchart LR
+ APP[后端系统] --&gt; C[控制器层]
+ APP --&gt; B[业务层]
+ APP --&gt; I[外部服务适配层]
+ APP --&gt; P[持久化层：计划新增]
+ C --&gt; CHAT[聊天与语音入口]
+ C --&gt; REST[天气、景点、路线、计划入口]
+ B --&gt; WEATHER[天气与城市确认]
+ B --&gt; POI[景点查询]
+ B --&gt; ROUTE[路线规划]
+ B --&gt; PLAN[基础计划与真实景点计划]
+ B --&gt; RISK[天气冲突与局部修改]
+ B --&gt; AGENT[工具编排与内存会话]
+ I --&gt; CLIENT[OpenMeteoClient、AmapClient、McpToolClient]
+ P --&gt; REPO[实体、Repository、事务]
+</pre></details></section><section><h2>system-architecture</h2><button onclick="save(3)">下载本图 SVG</button><div class="mermaid" id="g3">flowchart TB
+ U[网页用户] --&gt; WEB[Thymeleaf与JavaScript]
+ PHONE[手机] --&gt;|BLE蓝牙| ESP[ESP32-S3与LCD]
+ WEB --&gt;|HTTP与JSON| CTRL[Spring Boot控制器层]
+ ESP --&gt;|Wi-Fi与HTTPS| CTRL
+ CTRL --&gt; AGENT[AgentService智能体]
+ CTRL --&gt; SVC[天气、景点、路线、行程服务]
+ AGENT --&gt; STORE[ChatSessionStore内存会话]
+ AGENT --&gt;|本地适配或MCP| SVC
+ AGENT --&gt; MODEL[DashScope模型服务]
+ SVC --&gt; OM[Open-Meteo天气与地理编码]
+ SVC --&gt; AMAP[高德POI与路线]
+ SVC -.计划新增持久化.-&gt; DB[(MySQL数据库)]
+ STORE -.计划迁移.-&gt; DB
+</div><details><summary>可编辑图源</summary><pre class="source">flowchart TB
+ U[网页用户] --&gt; WEB[Thymeleaf与JavaScript]
+ PHONE[手机] --&gt;|BLE蓝牙| ESP[ESP32-S3与LCD]
+ WEB --&gt;|HTTP与JSON| CTRL[Spring Boot控制器层]
+ ESP --&gt;|Wi-Fi与HTTPS| CTRL
+ CTRL --&gt; AGENT[AgentService智能体]
+ CTRL --&gt; SVC[天气、景点、路线、行程服务]
+ AGENT --&gt; STORE[ChatSessionStore内存会话]
+ AGENT --&gt;|本地适配或MCP| SVC
+ AGENT --&gt; MODEL[DashScope模型服务]
+ SVC --&gt; OM[Open-Meteo天气与地理编码]
+ SVC --&gt; AMAP[高德POI与路线]
+ SVC -.计划新增持久化.-&gt; DB[(MySQL数据库)]
+ STORE -.计划迁移.-&gt; DB
+</pre></details></section><section><h2>weather-sequence</h2><button onclick="save(4)">下载本图 SVG</button><div class="mermaid" id="g4">sequenceDiagram
+ actor U as 用户
+ participant C as 天气控制器
+ participant S as WeatherService
+ participant O as OpenMeteoClient
+ participant API as Open-Meteo
+ U-&gt;&gt;C: 城市、日期
+ C-&gt;&gt;S: getWeather(city,date)
+ S-&gt;&gt;O: 搜索城市
+ O-&gt;&gt;API: 地理编码查询
+ API--&gt;&gt;O: 候选地点
+ O--&gt;&gt;S: CityData列表
+ alt 无结果或多候选
+ S--&gt;&gt;C: 业务异常或要求确认地点
+ C--&gt;&gt;U: 展示错误提示
+ else 唯一有效地点
+ S-&gt;&gt;O: 按经纬度和日期查天气
+ O-&gt;&gt;API: 天气预报请求
+ API--&gt;&gt;O: 每日预报
+ O--&gt;&gt;S: WeatherData
+ S--&gt;&gt;C: 天气结果
+ C--&gt;&gt;U: 天气页面
+ end
+</div><details><summary>可编辑图源</summary><pre class="source">sequenceDiagram
+ actor U as 用户
+ participant C as 天气控制器
+ participant S as WeatherService
+ participant O as OpenMeteoClient
+ participant API as Open-Meteo
+ U-&gt;&gt;C: 城市、日期
+ C-&gt;&gt;S: getWeather(city,date)
+ S-&gt;&gt;O: 搜索城市
+ O-&gt;&gt;API: 地理编码查询
+ API--&gt;&gt;O: 候选地点
+ O--&gt;&gt;S: CityData列表
+ alt 无结果或多候选
+ S--&gt;&gt;C: 业务异常或要求确认地点
+ C--&gt;&gt;U: 展示错误提示
+ else 唯一有效地点
+ S-&gt;&gt;O: 按经纬度和日期查天气
+ O-&gt;&gt;API: 天气预报请求
+ API--&gt;&gt;O: 每日预报
+ O--&gt;&gt;S: WeatherData
+ S--&gt;&gt;C: 天气结果
+ C--&gt;&gt;U: 天气页面
+ end
+</pre></details></section><section><h2>er-diagram</h2><button onclick="save(5)">下载本图 SVG</button><div class="mermaid" id="g5">erDiagram
+  app_user {
+    bigint id PK
+    string username
+    string password_hash
+    string role
+    datetime created_at
+  }
+  chat_session {
+    string id PK
+    bigint user_id FK
+    string device_id
+    json confirmed_city
+    json pending_cities
+    json state_snapshot
+    datetime last_active_at
+    int version
+  }
+  chat_message {
+    bigint id PK
+    string session_id FK
+    int sequence_no
+    string role
+    text content
+    json tool_calls
+    datetime created_at
+  }
+  weather_query {
+    bigint id PK
+    string session_id FK
+    string city
+    date forecast_date
+    decimal latitude
+    decimal longitude
+    json weather_snapshot
+    string source
+    datetime queried_at
+  }
+  travel_plan {
+    bigint id PK
+    string session_id FK
+    bigint user_id FK
+    string city
+    date travel_date
+    string preference
+    decimal budget
+    string transport_mode
+    int version
+    datetime created_at
+  }
+  attraction {
+    bigint id PK
+    string provider
+    string poi_id
+    string name
+    string city
+    string address
+    decimal longitude
+    decimal latitude
+    string category
+    decimal rating
+    string opening_hours
+    datetime expires_at
+  }
+  schedule_item {
+    bigint id PK
+    bigint plan_id FK
+    bigint attraction_id FK
+    string period
+    time start_time
+    time end_time
+    text activity
+    json attraction_snapshot
+  }
+  route_plan {
+    bigint id PK
+    bigint plan_id FK
+    bigint origin_id FK
+    bigint destination_id FK
+    string transport_mode
+    decimal distance_meters
+    int duration_seconds
+    json segments
+    string source
+    datetime queried_at
+  }
+  conflict_record {
+    bigint id PK
+    bigint plan_id FK
+    int plan_version
+    string type
+    string severity
+    text message
+    datetime detected_at
+  }
+  plan_revision {
+    bigint id PK
+    bigint plan_id FK
+    int from_version
+    string target_period
+    boolean confirmed
+    json before_snapshot
+    json after_snapshot
+    datetime created_at
+  }
+  attraction_favorite {
+    bigint id PK
+    bigint user_id FK
+    bigint attraction_id FK
+    datetime created_at
+  }
+  user_feedback {
+    bigint id PK
+    bigint user_id FK
+    text content
+    string status
+    datetime created_at
+  }
+  api_call_log {
+    bigint id PK
+    string session_id FK
+    string provider
+    string operation
+    int http_status
+    int duration_ms
+    string error_code
+    datetime created_at
+  }
+  app_user |o--o{ chat_session : "user_id"
+  chat_session ||--o{ chat_message : "session_id"
+  chat_session |o--o{ weather_query : "session_id"
+  chat_session |o--o{ travel_plan : "session_id"
+  app_user |o--o{ travel_plan : "user_id"
+  travel_plan ||--o{ schedule_item : "plan_id"
+  attraction |o--o{ schedule_item : "attraction_id"
+  travel_plan |o--o{ route_plan : "plan_id"
+  attraction ||--o{ route_plan : "origin_id"
+  attraction ||--o{ route_plan : "destination_id"
+  travel_plan ||--o{ conflict_record : "plan_id"
+  travel_plan ||--o{ plan_revision : "plan_id"
+  app_user ||--o{ attraction_favorite : "user_id"
+  attraction ||--o{ attraction_favorite : "attraction_id"
+  app_user |o--o{ user_feedback : "user_id"
+  chat_session |o--o{ api_call_log : "session_id"
+</div><details><summary>可编辑图源</summary><pre class="source">erDiagram
+  app_user {
+    bigint id PK
+    string username
+    string password_hash
+    string role
+    datetime created_at
+  }
+  chat_session {
+    string id PK
+    bigint user_id FK
+    string device_id
+    json confirmed_city
+    json pending_cities
+    json state_snapshot
+    datetime last_active_at
+    int version
+  }
+  chat_message {
+    bigint id PK
+    string session_id FK
+    int sequence_no
+    string role
+    text content
+    json tool_calls
+    datetime created_at
+  }
+  weather_query {
+    bigint id PK
+    string session_id FK
+    string city
+    date forecast_date
+    decimal latitude
+    decimal longitude
+    json weather_snapshot
+    string source
+    datetime queried_at
+  }
+  travel_plan {
+    bigint id PK
+    string session_id FK
+    bigint user_id FK
+    string city
+    date travel_date
+    string preference
+    decimal budget
+    string transport_mode
+    int version
+    datetime created_at
+  }
+  attraction {
+    bigint id PK
+    string provider
+    string poi_id
+    string name
+    string city
+    string address
+    decimal longitude
+    decimal latitude
+    string category
+    decimal rating
+    string opening_hours
+    datetime expires_at
+  }
+  schedule_item {
+    bigint id PK
+    bigint plan_id FK
+    bigint attraction_id FK
+    string period
+    time start_time
+    time end_time
+    text activity
+    json attraction_snapshot
+  }
+  route_plan {
+    bigint id PK
+    bigint plan_id FK
+    bigint origin_id FK
+    bigint destination_id FK
+    string transport_mode
+    decimal distance_meters
+    int duration_seconds
+    json segments
+    string source
+    datetime queried_at
+  }
+  conflict_record {
+    bigint id PK
+    bigint plan_id FK
+    int plan_version
+    string type
+    string severity
+    text message
+    datetime detected_at
+  }
+  plan_revision {
+    bigint id PK
+    bigint plan_id FK
+    int from_version
+    string target_period
+    boolean confirmed
+    json before_snapshot
+    json after_snapshot
+    datetime created_at
+  }
+  attraction_favorite {
+    bigint id PK
+    bigint user_id FK
+    bigint attraction_id FK
+    datetime created_at
+  }
+  user_feedback {
+    bigint id PK
+    bigint user_id FK
+    text content
+    string status
+    datetime created_at
+  }
+  api_call_log {
+    bigint id PK
+    string session_id FK
+    string provider
+    string operation
+    int http_status
+    int duration_ms
+    string error_code
+    datetime created_at
+  }
+  app_user |o--o{ chat_session : "user_id"
+  chat_session ||--o{ chat_message : "session_id"
+  chat_session |o--o{ weather_query : "session_id"
+  chat_session |o--o{ travel_plan : "session_id"
+  app_user |o--o{ travel_plan : "user_id"
+  travel_plan ||--o{ schedule_item : "plan_id"
+  attraction |o--o{ schedule_item : "attraction_id"
+  travel_plan |o--o{ route_plan : "plan_id"
+  attraction ||--o{ route_plan : "origin_id"
+  attraction ||--o{ route_plan : "destination_id"
+  travel_plan ||--o{ conflict_record : "plan_id"
+  travel_plan ||--o{ plan_revision : "plan_id"
+  app_user ||--o{ attraction_favorite : "user_id"
+  attraction ||--o{ attraction_favorite : "attraction_id"
+  app_user |o--o{ user_feedback : "user_id"
+  chat_session |o--o{ api_call_log : "session_id"
+</pre></details></section><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({startOnLoad:true,theme:'neutral',securityLevel:'strict',flowchart:{useMaxWidth:false},sequence:{useMaxWidth:false},er:{useMaxWidth:false}});window.save=(i)=>{const svg=document.querySelector('#g'+i+' svg');if(!svg){alert('请等待图形加载，或检查网络后重试');return;}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'}));a.download='design-'+i+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};</script></html>

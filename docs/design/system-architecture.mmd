@@ -1,0 +1,14 @@
+flowchart TB
+ U[网页用户] --> WEB[Thymeleaf与JavaScript]
+ PHONE[手机] -->|BLE蓝牙| ESP[ESP32-S3与LCD]
+ WEB -->|HTTP与JSON| CTRL[Spring Boot控制器层]
+ ESP -->|Wi-Fi与HTTPS| CTRL
+ CTRL --> AGENT[AgentService智能体]
+ CTRL --> SVC[天气、景点、路线、行程服务]
+ AGENT --> STORE[ChatSessionStore内存会话]
+ AGENT -->|本地适配或MCP| SVC
+ AGENT --> MODEL[DashScope模型服务]
+ SVC --> OM[Open-Meteo天气与地理编码]
+ SVC --> AMAP[高德POI与路线]
+ SVC -.计划新增持久化.-> DB[(MySQL数据库)]
+ STORE -.计划迁移.-> DB

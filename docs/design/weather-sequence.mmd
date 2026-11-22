@@ -1,0 +1,23 @@
+sequenceDiagram
+ actor U as 用户
+ participant C as 天气控制器
+ participant S as WeatherService
+ participant O as OpenMeteoClient
+ participant API as Open-Meteo
+ U->>C: 城市、日期
+ C->>S: getWeather(city,date)
+ S->>O: 搜索城市
+ O->>API: 地理编码查询
+ API-->>O: 候选地点
+ O-->>S: CityData列表
+ alt 无结果或多候选
+ S-->>C: 业务异常或要求确认地点
+ C-->>U: 展示错误提示
+ else 唯一有效地点
+ S->>O: 按经纬度和日期查天气
+ O->>API: 天气预报请求
+ API-->>O: 每日预报
+ O-->>S: WeatherData
+ S-->>C: 天气结果
+ C-->>U: 天气页面
+ end

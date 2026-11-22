@@ -1,0 +1,29 @@
+classDiagram
+ class WeatherController["天气控制器 WeatherController"]
+ class WeatherService["天气服务 WeatherService"]
+ class OpenMeteoClient["天气客户端 OpenMeteoClient"]
+ class AgentService["智能体服务 AgentService"]
+ class ChatSessionStore["内存会话 ChatSessionStore"]
+ class TravelPlanService["基础行程 TravelPlanService"]
+ class PoiService["景点服务 PoiService"]
+ class RouteService["路线服务 RouteService"]
+ class AmapClient["高德客户端 AmapClient"]
+ class EnrichedTravelPlanService["真实景点行程 EnrichedTravelPlanService"]
+ class WeatherConflictService["天气冲突 WeatherConflictService"]
+ class PlanModifyService["行程修改 PlanModifyService"]
+ class VoiceChatService["语音服务 VoiceChatService"]
+ WeatherController --> WeatherService : 查询
+ WeatherService --> OpenMeteoClient : 请求预报
+ AgentService --> ChatSessionStore : 保存状态
+ AgentService --> WeatherService : 查天气
+ AgentService --> TravelPlanService : 生成或局部修改
+ AgentService --> PoiService : 搜索景点
+ AgentService --> RouteService : 规划交通
+ PoiService --> AmapClient : 请求POI
+ RouteService --> PoiService : 读取起终点
+ RouteService --> AmapClient : 请求路线
+ EnrichedTravelPlanService --> PoiService : 选择景点
+ EnrichedTravelPlanService --> RouteService : 衔接路线
+ VoiceChatService --> AgentService : 复用对话
+ note for WeatherConflictService "已有独立规则服务；当前Agent生成路径未统一接入"
+ note for PlanModifyService "真实景点计划修改服务；与基础计划修改路径区分"
